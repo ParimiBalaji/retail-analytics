@@ -1,0 +1,27 @@
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	router(router)
+	retriever(retriever)
+	planner(planner)
+	sql_gen(sql_gen)
+	executor(executor)
+	synthesizer(synthesizer)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> router;
+	executor -. &nbsp;retry&nbsp; .-> sql_gen;
+	executor -. &nbsp;synthesize&nbsp; .-> synthesizer;
+	planner --> sql_gen;
+	retriever -.-> planner;
+	retriever -.-> synthesizer;
+	router -. &nbsp;sql&nbsp; .-> planner;
+	router -. &nbsp;hybrid&nbsp; .-> retriever;
+	sql_gen --> executor;
+	synthesizer --> __end__;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc

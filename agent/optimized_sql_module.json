@@ -1,0 +1,77 @@
+{
+  "predict": {
+    "traces": [],
+    "train": [],
+    "demos": [
+      {
+        "question": "During 'Summer Beverages 2017' campaign, which product category had the highest total quantity sold across ALL categories?",
+        "db_schema": "Tables: orders, order_items, products, categories",
+        "sql_query": "SELECT cat.CategoryName, SUM(oi.Quantity) AS TotalQuantitySold FROM orders AS o JOIN order_items AS oi ON o.OrderID = oi.OrderID JOIN products AS p ON oi.ProductID = p.ProductID JOIN categories AS cat ON p.CategoryID = cat.CategoryID WHERE strftime('%Y-%m', o.OrderDate) IN ('2017-06') GROUP BY cat.CategoryName ORDER BY TotalQuantitySold DESC LIMIT 1;"
+      },
+      {
+        "question": "What was the Average Order Value during 'Winter Classics 2017' (December)?",
+        "db_schema": "Tables: orders, order_items",
+        "sql_query": "SELECT ROUND(SUM(oi.UnitPrice * oi.Quantity * (1 - oi.Discount)) / COUNT(DISTINCT o.OrderID), 2) AS AOV FROM orders o JOIN order_items oi ON o.OrderID = oi.OrderID WHERE strftime('%Y-%m', o.OrderDate) = '2017-12';"
+      },
+      {
+        "question": "Top 3 products by total revenue all time. Return all 3 as a list.",
+        "db_schema": "Tables: order_items, products",
+        "sql_query": "SELECT p.ProductName, ROUND(SUM(oi.UnitPrice * oi.Quantity * (1 - oi.Discount)), 2) AS total_revenue FROM order_items AS oi JOIN products AS p ON oi.ProductID = p.ProductID GROUP BY p.ProductID, p.ProductName ORDER BY total_revenue DESC LIMIT 3;"
+      },
+      {
+        "question": "Total revenue from Beverages category during June 2017 only",
+        "db_schema": "Tables: orders, order_items, products, categories",
+        "sql_query": "SELECT ROUND(SUM(oi.UnitPrice * oi.Quantity * (1 - oi.Discount)), 2) AS revenue FROM orders o JOIN order_items oi ON o.OrderID = oi.OrderID JOIN products p ON oi.ProductID = p.ProductID JOIN categories cat ON p.CategoryID = cat.CategoryID WHERE cat.CategoryName = 'Beverages' AND strftime('%Y-%m', o.OrderDate) = '2017-06';"
+      },
+      {
+        "question": "Who was the top customer by gross margin in 2017? Assume CostOfGoods is 70% of UnitPrice, so margin is 30%.",
+        "db_schema": "Tables: orders, order_items, customers",
+        "sql_query": "SELECT c.CompanyName, ROUND(SUM((oi.UnitPrice * 0.3) * oi.Quantity * (1 - oi.Discount)), 2) AS total_gross_margin FROM customers AS c JOIN orders AS o ON c.CustomerID = o.CustomerID JOIN order_items AS oi ON o.OrderID = oi.OrderID WHERE strftime('%Y', o.OrderDate) = '2017' GROUP BY c.CompanyName ORDER BY total_gross_margin DESC LIMIT 1;"
+      },
+      {
+        "question": "How many distinct employees processed orders for USA customers?",
+        "db_schema": "Tables: orders, customers",
+        "sql_query": "SELECT COUNT(DISTINCT o.EmployeeID) AS employee_count FROM orders AS o JOIN customers AS c ON o.CustomerID = c.CustomerID WHERE c.Country = 'USA';"
+      },
+      {
+        "question": "What was the total revenue from Condiments category in 2017?",
+        "db_schema": "Tables: orders, order_items, products, categories",
+        "sql_query": "SELECT ROUND(SUM(oi.UnitPrice * oi.Quantity * (1 - oi.Discount)), 2) AS total_revenue FROM orders o JOIN order_items oi ON o.OrderID = oi.OrderID JOIN products p ON oi.ProductID = p.ProductID JOIN categories cat ON p.CategoryID = cat.CategoryID WHERE strftime('%Y', o.OrderDate) = '2017' AND cat.CategoryName = 'Condiments';"
+      },
+      {
+        "question": "Which order in 2017 had the highest freight cost?",
+        "db_schema": "Tables: orders",
+        "sql_query": "SELECT o.OrderID, o.Freight FROM orders AS o WHERE strftime('%Y', o.OrderDate) = '2017' ORDER BY o.Freight DESC LIMIT 1;"
+      }
+    ],
+    "signature": {
+      "instructions": "Write a SQLite query for Northwind database.\n\nCRITICAL RULES:\n1. Tables: Use lowercase aliases: orders (o), order_items (oi), products (p), customers (c), categories (cat)\n2. Always use table aliases in column names: o.OrderDate, oi.UnitPrice, p.ProductName, cat.CategoryName\n3. Date filtering:\n   - Single month: strftime('%Y-%m', o.OrderDate) = '2017-12'\n   - Multiple months: strftime('%Y-%m', o.OrderDate) IN ('2017-06', '2017-07', '2017-08')\n   - Year only: strftime('%Y', o.OrderDate) = '2017'\n   - NEVER use BETWEEN with strftime - it fails alphabetically!\n4. Revenue formula: SUM(oi.UnitPrice * oi.Quantity * (1 - oi.Discount))\n5. Margin formula: SUM((oi.UnitPrice * 0.3) * oi.Quantity * (1 - oi.Discount))\n   - NO nested SUM! Calculate as: (price * 0.3) not (price - price*0.7)\n6. Category queries:\n   - MUST JOIN categories table to get CategoryName\n   - Filter using cat.CategoryName = 'Beverages', NOT CategoryID\n   - If question asks for 'top category', check ALL categories (no WHERE filter on category)\n7. AOV (Average Order Value):\n   - Formula: SUM(revenue) / COUNT(DISTINCT o.OrderID)\n   - NO GROUP BY clause - calculate across all orders\n8. Always include column aliases: AS total_revenue, AS AOV, AS TotalQuantitySold\n9. Use ROUND(..., 2) for monetary values\n10. When LIMIT is specified, ensure query returns that many rows\n\nCOMMON MISTAKES TO AVOID:\n- Don't filter by category name when question asks for 'which category'\n- Don't add GROUP BY when calculating averages across all orders\n- Don't use BETWEEN for date strings after strftime\n- Don't forget closing parentheses in ROUND() and SUM()\n- Don't use CategoryID when CategoryName is needed",
+      "fields": [
+        {
+          "prefix": "Question:",
+          "description": "${question}"
+        },
+        {
+          "prefix": "Db Schema:",
+          "description": "Schema info"
+        },
+        {
+          "prefix": "Reasoning: Let's think step by step in order to",
+          "description": "${reasoning}"
+        },
+        {
+          "prefix": "Sql Query:",
+          "description": "SQL query starting with SELECT"
+        }
+      ]
+    },
+    "lm": null
+  },
+  "metadata": {
+    "dependency_versions": {
+      "python": "3.12",
+      "dspy": "3.0.4",
+      "cloudpickle": "3.1"
+    }
+  }
+}
