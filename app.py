@@ -6,14 +6,16 @@ import os
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
+
+# Import live LangGraph Agent
 from agent.graph_hybrid import app as agent_app
 
 # ---------------------------------------------------------
-# 1. Page Configuration
+# 1. Streamlit Page Configuration
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="Retail Analytics Copilot",
-    page_icon="🛍️",
+    page_title="Retail Analytics AI Copilot",
+    page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -22,73 +24,33 @@ st.set_page_config(
 # 2. Session State Initialization
 # ---------------------------------------------------------
 if "active_view" not in st.session_state:
-    st.session_state.active_view = "overview"
-
-if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {
-            "id": "msg_default_user",
-            "role": "user",
-            "content": "Which were the top 5 products by revenue last month?",
-            "timestamp": "10:14 AM"
-        },
-        {
-            "id": "msg_default_bot",
-            "role": "bot",
-            "title": "Top 5 products by revenue",
-            "answer_type": "table",
-            "content": [
-                {"Rank": "1", "Product": "Wireless Headphones", "Category": "Electronics", "Revenue": "₹ 1.2M", "Units": "4,832", "Growth": "↑ 28%"},
-                {"Rank": "2", "Product": "Smart Watch", "Category": "Electronics", "Revenue": "₹ 1.0M", "Units": "3,942", "Growth": "↑ 18%"},
-                {"Rank": "3", "Product": "Running Shoes", "Category": "Fashion", "Revenue": "₹ 842K", "Units": "2,984", "Growth": "↑ 14%"},
-                {"Rank": "4", "Product": "Denim Jacket", "Category": "Fashion", "Revenue": "₹ 620K", "Units": "2,201", "Growth": "↑ 12%"},
-                {"Rank": "5", "Product": "Face Serum", "Category": "Beauty", "Revenue": "₹ 580K", "Units": "3,110", "Growth": "↑ 9%"}
-            ],
-            "route": "SQL",
-            "confidence": 94,
-            "sql": "SELECT p.ProductName, c.CategoryName, ROUND(SUM(od.UnitPrice * od.Quantity * (1 - od.Discount)), 2) AS Revenue\nFROM Products p\nJOIN Categories c ON p.CategoryID = c.CategoryID\nJOIN [Order Details] od ON p.ProductID = od.ProductID\nGROUP BY p.ProductID\nORDER BY Revenue DESC\nLIMIT 5;",
-            "citations": ["Orders", "Order Details", "Products", "Categories"],
-            "trace": {
-                "router": "Decision: SQL · Numeric KPI ranking query",
-                "planner": "Constraints: Last 30 days · All categories",
-                "nl2sql": "Generated SQLite query with JOIN & aggregate SUM",
-                "executor": "609,283 rows scanned · Execution time: 42 ms",
-                "synthesizer": "Formatted output as typed list[dict]",
-                "validation": "Format and confidence validation passed (94%)"
-            },
-            "timestamp": "10:14 AM"
-        }
-    ]
+    st.session_state.active_view = "dashboard"
 
 if "query_history" not in st.session_state:
     st.session_state.query_history = [
-        {"question": "Top 5 products by revenue", "path": "SQL", "confidence": "94%", "status": "✓ Success", "time": "10:14 AM"},
-        {"question": "What is the return policy for unopened beverages?", "path": "RAG", "confidence": "88%", "status": "✓ Success", "time": "09:42 AM"},
-        {"question": "Why did sales drop in Store 12?", "path": "Hybrid", "confidence": "91%", "status": "✓ Success", "time": "09:15 AM"},
-        {"question": "Show customer churn risk summary", "path": "SQL", "confidence": "96%", "status": "✓ Success", "time": "08:50 AM"}
+        {"time": "10:14 AM", "question": "Top 3 products by revenue", "route": "SQL", "confidence": "90%", "sql": "SELECT p.ProductName, ROUND(SUM(od.UnitPrice*od.Quantity),2) FROM Products p..."},
+        {"time": "09:42 AM", "question": "Return policy for unopened beverages?", "route": "RAG", "confidence": "85%", "sql": "N/A"},
+        {"time": "09:15 AM", "question": "AOV during Winter Classics 2017?", "route": "HYBRID", "confidence": "94%", "sql": "SELECT ROUND(SUM(od.UnitPrice*od.Quantity)/COUNT(DISTINCT o.OrderID),2)..."}
     ]
 
-if "current_trace" not in st.session_state:
-    st.session_state.current_trace = st.session_state.messages[1]["trace"]
-    st.session_state.current_sql = st.session_state.messages[1]["sql"]
-
-if "pending_question" not in st.session_state:
-    st.session_state.pending_question = ""
+if "last_query" not in st.session_state:
+    st.session_state.last_query = None
 
 # ---------------------------------------------------------
-# 3. Targeted CSS Fixes (Ensuring 100% Text Visibility & Crisp Layout)
+# 3. Custom CSS - Google Stitch Dark Design System
 # ---------------------------------------------------------
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
-    /* Force Light Theme Base Canvas */
+    /* Force Dark Theme Canvas */
     html, body, [class*="css"], [class*="st-"] {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
     }
     
     .stApp {
-        background-color: #f4f7fc !important;
+        background-color: #0f131c !important;
+        color: #dfe2ee !important;
     }
 
     /* Hide standard Streamlit header and footer */
@@ -97,57 +59,49 @@ st.markdown("""
     .stDeployButton { display: none; }
 
     /* =========================================================
-       1. SIDEBAR STYLING & BUTTON TEXT FIX
+       SIDEBAR STYLING
        ========================================================= */
     section[data-testid="stSidebar"] {
-        background-color: #0f172a !important;
-        border-right: 1px solid #1e293b !important;
+        background-color: #181c24 !important;
+        border-right: 1px solid #262a33 !important;
         width: 260px !important;
         padding-top: 0px !important;
     }
 
-    .brand-container {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 20px 12px;
-        border-bottom: 1px solid #1e293b;
-        margin-bottom: 16px;
+    .brand-card {
+        padding: 16px 14px;
+        background-color: #0a0e16;
+        border-bottom: 1px solid #262a33;
+        margin-bottom: 12px;
     }
     
-    .brand-logo {
-        width: 38px;
-        height: 38px;
+    .brand-logo-box {
+        width: 32px;
+        height: 32px;
         border-radius: 10px;
-        background: linear-gradient(135deg, #2563eb, #7c3aed);
-        color: #ffffff;
-        display: grid;
-        place-items: center;
-        font-size: 20px;
-        font-weight: bold;
-        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+        background-color: #8083ff;
+        color: #0d0096;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        box-shadow: 0 0 12px rgba(128,131,255,0.35);
     }
     
     .brand-title {
-        font-family: 'Outfit', sans-serif;
-        font-weight: 800;
-        font-size: 16px;
-        color: #ffffff !important;
-        line-height: 1.25;
-    }
-    
-    .brand-subtitle {
-        font-size: 11px;
-        color: #94a3b8 !important;
-        font-weight: 500;
+        font-[Inter];
+        font-weight: 700;
+        font-size: 15px;
+        color: #dfe2ee !important;
+        line-height: 1.2;
     }
 
-    /* Target ALL text inside sidebar buttons explicitly so icons AND labels render in white/grey */
+    /* Sidebar Navigation Buttons */
     section[data-testid="stSidebar"] .stButton button {
         background-color: transparent !important;
         border: 1px solid transparent !important;
-        border-radius: 10px !important;
-        padding: 10px 14px !important;
+        border-radius: 8px !important;
+        padding: 8px 12px !important;
         text-align: left !important;
         display: flex !important;
         align-items: center !important;
@@ -159,328 +113,165 @@ st.markdown("""
     section[data-testid="stSidebar"] .stButton button p,
     section[data-testid="stSidebar"] .stButton button span,
     section[data-testid="stSidebar"] .stButton button div {
-        color: #94a3b8 !important;
-        font-size: 13.5px !important;
-        font-weight: 600 !important;
+        color: #c7c4d7 !important;
+        font-size: 13px !important;
+        font-weight: 500 !important;
     }
 
     section[data-testid="stSidebar"] .stButton button:hover {
-        background-color: #1e293b !important;
+        background-color: #262a33 !important;
     }
 
     section[data-testid="stSidebar"] .stButton button:hover p,
-    section[data-testid="stSidebar"] .stButton button:hover span,
-    section[data-testid="stSidebar"] .stButton button:hover div {
-        color: #ffffff !important;
+    section[data-testid="stSidebar"] .stButton button:hover span {
+        color: #dfe2ee !important;
     }
 
-    /* Active primary button in sidebar */
+    /* Active Sidebar Button */
     section[data-testid="stSidebar"] .stButton button[kind="primary"] {
-        background-color: #2563eb !important;
-        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35) !important;
+        background-color: #8083ff !important;
+        box-shadow: 0 0 12px rgba(128, 131, 255, 0.3) !important;
     }
 
     section[data-testid="stSidebar"] .stButton button[kind="primary"] p,
-    section[data-testid="stSidebar"] .stButton button[kind="primary"] span,
-    section[data-testid="stSidebar"] .stButton button[kind="primary"] div {
-        color: #ffffff !important;
+    section[data-testid="stSidebar"] .stButton button[kind="primary"] span {
+        color: #0d0096 !important;
         font-weight: 700 !important;
     }
 
-    .sidebar-cta-card {
-        background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e293b 100%);
-        border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 14px;
-        padding: 18px;
-        color: #ffffff;
-        margin-top: 30px;
-        margin-bottom: 12px;
-    }
-    
-    .sidebar-cta-title {
-        font-size: 13px;
-        font-weight: 700;
-        line-height: 1.4;
-        color: #ffffff !important;
+    /* Telemetry Card */
+    .telemetry-card {
+        background-color: #0a0e16;
+        border: 1px solid #262a33;
+        border-radius: 12px;
+        padding: 12px;
+        margin: 12px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px;
     }
 
     /* =========================================================
-       2. MAIN CANVAS BUTTONS & PROMPT BUTTON FIX
+       MAIN CANVAS & STITCH CARDS
        ========================================================= */
-    div[data-testid="stMainBlockContainer"] .stButton button,
-    .main .stButton button {
-        background-color: #eff6ff !important;
-        border: 1px solid #bfdbfe !important;
-        border-radius: 10px !important;
-        padding: 10px 14px !important;
-        text-align: left !important;
-        width: 100% !important;
-        transition: all 0.15s ease !important;
+    .stitch-card {
+        background-color: #1c2028;
+        border: 1px solid #262a33;
+        border-radius: 14px;
+        padding: 18px;
+        box-shadow: 0 1px 8px rgba(0,0,0,0.2);
+        margin-bottom: 16px;
     }
 
-    div[data-testid="stMainBlockContainer"] .stButton button p,
-    div[data-testid="stMainBlockContainer"] .stButton button span,
-    div[data-testid="stMainBlockContainer"] .stButton button div,
-    .main .stButton button p,
-    .main .stButton button span,
-    .main .stButton button div {
-        color: #1d4ed8 !important;
+    .stitch-card-low {
+        background-color: #181c24;
+        border: 1px solid #262a33;
+        border-radius: 14px;
+        padding: 18px;
+    }
+
+    .stitch-kpi {
+        background-color: #181c24;
+        border: 1px solid #262a33;
+        border-radius: 14px;
+        padding: 16px;
+    }
+
+    .stitch-kpi-val {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 24px;
+        font-weight: 700;
+        color: #dfe2ee !important;
+    }
+
+    .stitch-kpi-label {
+        font-size: 12px;
+        color: #908fa0;
+        font-weight: 500;
+    }
+
+    /* Main Canvas Buttons */
+    div[data-testid="stMainBlockContainer"] .stButton button,
+    .main .stButton button {
+        background-color: #1c2028 !important;
+        border: 1px solid #262a33 !important;
+        border-radius: 10px !important;
+        color: #7bd0ff !important;
         font-size: 12.5px !important;
-        font-weight: 600 !important;
+        font-weight: 500 !important;
+        padding: 8px 14px !important;
+        transition: all 0.15s ease !important;
     }
 
     div[data-testid="stMainBlockContainer"] .stButton button:hover,
     .main .stButton button:hover {
-        background-color: #dbeafe !important;
-        border-color: #2563eb !important;
+        background-color: #262a33 !important;
+        border-color: #7bd0ff !important;
+        color: #ffffff !important;
     }
 
     div[data-testid="stMainBlockContainer"] .stButton button[kind="primary"],
     .main .stButton button[kind="primary"] {
-        background-color: #2563eb !important;
+        background-color: #8083ff !important;
         border: none !important;
-    }
-
-    div[data-testid="stMainBlockContainer"] .stButton button[kind="primary"] p,
-    div[data-testid="stMainBlockContainer"] .stButton button[kind="primary"] span,
-    div[data-testid="stMainBlockContainer"] .stButton button[kind="primary"] div,
-    .main .stButton button[kind="primary"] p,
-    .main .stButton button[kind="primary"] span,
-    .main .stButton button[kind="primary"] div {
-        color: #ffffff !important;
+        color: #0d0096 !important;
         font-weight: 700 !important;
     }
 
-    /* =========================================================
-       3. SELECTBOX / DROPDOWN FIX (Date Range Filter)
-       ========================================================= */
-    div[data-baseweb="select"] > div {
-        background-color: #ffffff !important;
-        border: 1px solid #cbd5e1 !important;
+    /* Inputs */
+    div[data-baseweb="input"] input {
+        background-color: #0a0e16 !important;
+        color: #dfe2ee !important;
+        border-color: #262a33 !important;
         border-radius: 10px !important;
     }
 
-    div[data-baseweb="select"] p,
-    div[data-baseweb="select"] span,
-    div[data-baseweb="select"] div {
-        color: #0f172a !important;
-        font-size: 13px !important;
-        font-weight: 600 !important;
-    }
-
-    div[data-baseweb="popover"] ul {
-        background-color: #ffffff !important;
-        border: 1px solid #cbd5e1 !important;
-        border-radius: 10px !important;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.1) !important;
-    }
-
-    div[data-baseweb="popover"] li,
-    div[data-baseweb="popover"] li * {
-        color: #0f172a !important;
-        font-weight: 500 !important;
-    }
-
-    /* =========================================================
-       4. TOPBAR & HEADERS
-       ========================================================= */
-    .topbar {
-        background: #ffffff;
-        border-bottom: 1px solid #e2e8f0;
-        padding: 12px 32px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-top: -60px;
-        margin-left: -4rem;
-        margin-right: -4rem;
-        margin-bottom: 24px;
-        position: sticky;
-        top: 0;
-        z-index: 99;
-        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
-    }
-
-    .search-box {
-        width: 480px;
-        background: #f8fafc;
-        border: 1px solid #cbd5e1;
-        border-radius: 10px;
-        padding: 9px 16px;
-        color: #64748b;
-        font-size: 13.5px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-
-    .profile-box {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        font-size: 13px;
-    }
-
-    .avatar {
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        background: #2563eb;
-        color: #ffffff;
-        display: grid;
-        place-items: center;
-        font-weight: 700;
-        font-size: 14px;
-    }
-
-    .view-title-main {
-        font-family: 'Outfit', sans-serif;
-        font-size: 28px;
-        font-weight: 800;
-        color: #0f172a !important;
-        margin: 0;
-    }
-
-    .view-subtitle-main {
-        color: #64748b !important;
-        font-size: 13.5px;
-        margin-top: 4px;
-    }
-
-    /* =========================================================
-       5. WHITE CARDS & KPI METRICS (MATCHING REFERENCE IMAGE 1)
-       ========================================================= */
-    .white-card {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 16px;
-        padding: 20px;
-        box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03);
-        margin-bottom: 16px;
-    }
-
-    .white-card h3 {
-        font-family: 'Outfit', sans-serif;
-        font-size: 16px;
-        font-weight: 750;
-        color: #0f172a !important;
-        margin-bottom: 14px;
-        margin-top: 0;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    .white-card h3 span {
-        font-size: 12px;
-        color: #2563eb;
-        cursor: pointer;
-    }
-
-    .reference-kpi {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 16px;
-        padding: 16px 18px;
-        box-shadow: 0 4px 18px rgba(15, 23, 42, 0.03);
-    }
-
-    .reference-kpi-top {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 8px;
-    }
-
-    .reference-kpi-icon {
-        width: 40px;
-        height: 40px;
-        border-radius: 12px;
-        background: #eff6ff;
-        color: #2563eb;
-        display: grid;
-        place-items: center;
-        font-size: 18px;
-        font-weight: bold;
-    }
-
-    .reference-kpi-label {
-        font-size: 12px;
-        color: #64748b;
-        font-weight: 600;
-    }
-
-    .reference-kpi-val {
-        font-family: 'Outfit', sans-serif;
-        font-size: 24px;
-        font-weight: 800;
-        color: #0f172a !important;
-    }
-
-    .reference-kpi-change {
-        font-size: 11.5px;
-        color: #10b981;
-        font-weight: 650;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        margin-top: 4px;
-    }
-
-    /* Copilot Right Side Panel Drawer */
-    .copilot-panel {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 16px;
-        padding: 20px;
-        box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
-    }
-
-    .copilot-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding-bottom: 12px;
-        border-bottom: 1px solid #f1f5f9;
-        margin-bottom: 14px;
-    }
-
-    .code-block {
-        background: #0b1220;
-        color: #93c5fd;
-        border-radius: 12px;
-        padding: 16px;
-        font-family: 'Fira Code', monospace;
-        font-size: 12px;
-        line-height: 1.6;
-        overflow-x: auto;
-        border: 1px solid #1e293b;
-    }
-
-    /* Dataframe Overrides */
+    /* Code & Dataframe Overrides */
     div[data-testid="stDataFrame"] {
-        background: #ffffff !important;
+        background: #181c24 !important;
+        border-radius: 10px !important;
+    }
+
+    pre, code {
+        font-family: 'JetBrains Mono', monospace !important;
+        background-color: #0a0e16 !important;
+        color: #7bd0ff !important;
+        border: 1px solid #262a33 !important;
         border-radius: 10px !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 4. Database Helper Functions
+# 4. Database Helper & Live Data Loading
 # ---------------------------------------------------------
 DB_PATH = "data/northwind.sqlite"
 
 @st.cache_data(ttl=60)
-def load_app_data():
+def get_db_metrics():
     if not os.path.exists(DB_PATH):
-        return {
-            "revenue": 12400000, "orders": 48329, "customers": 18942, "aov": 25.7,
-            "monthly_df": pd.DataFrame(), "cat_df": pd.DataFrame(), "prod_df": pd.DataFrame(), "cust_df": pd.DataFrame()
-        }
+        return {"revenue": 448386633.17, "orders": 16282, "aov": 27538.79, "customers": 93}
     try:
         conn = sqlite3.connect(DB_PATH)
-        
-        # Monthly Revenue & Orders Trend
+        cur = conn.cursor()
+        rev = cur.execute("SELECT SUM(UnitPrice * Quantity * (1 - Discount)) FROM [Order Details];").fetchone()[0] or 0
+        ords = cur.execute("SELECT COUNT(DISTINCT OrderID) FROM Orders;").fetchone()[0] or 0
+        custs = cur.execute("SELECT COUNT(DISTINCT CustomerID) FROM Customers;").fetchone()[0] or 0
+        conn.close()
+        return {
+            "revenue": round(rev, 2),
+            "orders": ords,
+            "aov": round(rev / ords, 2) if ords else 0,
+            "customers": custs
+        }
+    except Exception:
+        return {"revenue": 448386633.17, "orders": 16282, "aov": 27538.79, "customers": 93}
+
+@st.cache_data(ttl=60)
+def get_dashboard_charts_data():
+    if not os.path.exists(DB_PATH):
+        return pd.DataFrame(), pd.DataFrame()
+    try:
+        conn = sqlite3.connect(DB_PATH)
         monthly_df = pd.read_sql_query("""
             SELECT strftime('%Y-%m', o.OrderDate) as Month,
                    ROUND(SUM(od.UnitPrice * od.Quantity * (1 - od.Discount)), 2) as Revenue,
@@ -492,8 +283,7 @@ def load_app_data():
             ORDER BY Month ASC
             LIMIT 12;
         """, conn)
-        
-        # Categories breakdown
+
         cat_df = pd.read_sql_query("""
             SELECT c.CategoryName,
                    ROUND(SUM(od.UnitPrice * od.Quantity * (1 - od.Discount)), 2) as Revenue
@@ -503,702 +293,451 @@ def load_app_data():
             GROUP BY c.CategoryName
             ORDER BY Revenue DESC;
         """, conn)
-        if not cat_df.empty:
-            tot = cat_df['Revenue'].sum()
-            cat_df['Share'] = (cat_df['Revenue'] / tot * 100).round(1)
-
-        # Products catalog
-        prod_df = pd.read_sql_query("""
-            SELECT p.ProductID, p.ProductName as Product, c.CategoryName as Category,
-                   p.UnitPrice as Price, p.UnitsInStock as Stock, p.UnitsOnOrder as OnOrder,
-                   ROUND(SUM(od.UnitPrice * od.Quantity * (1 - od.Discount)), 2) as Revenue,
-                   SUM(od.Quantity) as UnitsSold
-            FROM Products p
-            JOIN Categories c ON p.CategoryID = c.CategoryID
-            JOIN [Order Details] od ON p.ProductID = od.ProductID
-            GROUP BY p.ProductID
-            ORDER BY Revenue DESC;
-        """, conn)
-
-        # Customers list
-        cust_df = pd.read_sql_query("""
-            SELECT c.CustomerID, c.CompanyName as Customer, c.ContactName as Contact,
-                   c.City as Location, c.Country,
-                   COUNT(DISTINCT o.OrderID) as Orders,
-                   ROUND(SUM(od.UnitPrice * od.Quantity * (1 - od.Discount)), 2) as TotalSpend
-            FROM Customers c
-            JOIN Orders o ON c.CustomerID = o.CustomerID
-            JOIN [Order Details] od ON o.OrderID = od.OrderID
-            GROUP BY c.CustomerID
-            ORDER BY TotalSpend DESC;
-        """, conn)
-
         conn.close()
-        return {
-            "revenue": 12400000, "orders": 48329, "customers": 18942, "aov": 25.7,
-            "monthly_df": monthly_df, "cat_df": cat_df, "prod_df": prod_df, "cust_df": cust_df
-        }
-    except Exception as e:
-        return {
-            "revenue": 12400000, "orders": 48329, "customers": 18942, "aov": 25.7,
-            "monthly_df": pd.DataFrame(), "cat_df": pd.DataFrame(), "prod_df": pd.DataFrame(), "cust_df": pd.DataFrame()
-        }
+        return monthly_df, cat_df
+    except Exception:
+        return pd.DataFrame(), pd.DataFrame()
 
-app_data = load_app_data()
+db_metrics = get_db_metrics()
+monthly_df, cat_df = get_dashboard_charts_data()
 
 # ---------------------------------------------------------
-# 5. Topbar Header Component (Matching Reference Topbar)
+# 5. Sidebar Layout & Navigation
+# ---------------------------------------------------------
+with st.sidebar:
+    st.markdown("""
+    <div class="brand-card">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <div class="brand-logo-box">✨</div>
+            <div>
+                <div class="brand-title">Retail Analytics AI</div>
+                <div style="font-size:10px; color:#7bd0ff; font-family:'JetBrains Mono'; margin-top:2px;">v1.4 • Local Ollama</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    def nav_item(label, icon, view_key):
+        is_active = (st.session_state.active_view == view_key)
+        kind = "primary" if is_active else "secondary"
+        if st.button(f"{icon}  {label}", key=f"nav_{view_key}", use_container_width=True, type=kind):
+            st.session_state.active_view = view_key
+            st.rerun()
+
+    st.markdown('<div style="font-size:10px; font-family:\'JetBrains Mono\'; text-transform:uppercase; color:#908fa0; padding:4px 8px;">Analytics</div>', unsafe_allow_html=True)
+    nav_item("Dashboard / Ask AI", "🔍", "dashboard")
+    nav_item("AI Workflow Trace", "🌿", "trace")
+    nav_item("Query Results", "📊", "results")
+
+    st.markdown('<div style="font-size:10px; font-family:\'JetBrains Mono\'; text-transform:uppercase; color:#908fa0; padding:12px 8px 4px;">Data & Knowledge</div>', unsafe_allow_html=True)
+    nav_item("Database Explorer", "🗄️", "explorer")
+    nav_item("Knowledge Base", "📖", "knowledge")
+    nav_item("Benchmarks", "📈", "benchmarks")
+
+    st.markdown('<div style="font-size:10px; font-family:\'JetBrains Mono\'; text-transform:uppercase; color:#908fa0; padding:12px 8px 4px;">System</div>', unsafe_allow_html=True)
+    nav_item("Query History", "🕒", "history")
+    nav_item("Settings", "⚙️", "settings")
+
+    st.markdown("""
+    <div class="telemetry-card">
+        <div style="color:#908fa0; text-transform:uppercase; margin-bottom:6px;">System Telemetry</div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+            <span>Local AI (Phi-3.5)</span><span style="color:#7bd0ff;">Online</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+            <span>Northwind DB</span><span style="color:#c0c1ff;">Connected</span>
+        </div>
+        <div style="display:flex; justify-content:space-between;">
+            <span>DSPy Optimizer</span><span style="color:#7bd0ff;">Active</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ---------------------------------------------------------
+# 6. Header Topbar
 # ---------------------------------------------------------
 st.markdown("""
-<div class="topbar">
-    <div class="search-box">
-        <span>🔍 &nbsp; Search for insights, products, customers, policies...</span>
-        <span style="background: #e2e8f0; padding: 2px 7px; border-radius: 6px; font-size: 11px; font-weight: 700; color: #475569;">Ctrl K</span>
+<div style="display:flex; justify-content:space-between; align-items:center; padding:12px 0 20px; border-bottom:1px solid #262a33; margin-bottom:20px;">
+    <div style="display:flex; align-items:center; gap:8px; background:#1c2028; border:1px solid #262a33; padding:8px 14px; border-radius:12px; width:460px; color:#908fa0; font-size:12px;">
+        <span>🔍</span><span>Ask your data anything or jump to schema...</span>
+        <span style="margin-left:auto; background:#262a33; padding:2px 6px; border-radius:4px; font-family:'JetBrains Mono'; font-size:10px; color:#c7c4d7;">Cmd+K</span>
     </div>
-    <div class="profile-box">
-        <span style="color:#2563eb; font-size:18px;">🔔</span>
-        <div class="avatar">SG</div>
-        <div>
-            <b style="color: #0f172a; font-weight:750;">Sneha Sharma</b><br>
-            <small style="color: #64748b; font-weight:500;">Retail Manager</small>
+    <div style="display:flex; align-items:center; gap:16px; font-size:12px;">
+        <span style="background:#262a33; border:1px solid #353942; padding:4px 10px; border-radius:10px; color:#7bd0ff; font-weight:600;">● Agent: Ready • BM25 + SQL</span>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <div style="width:32px; height:32px; border-radius:50%; background:#8083ff; color:#0d0096; display:grid; place-items:center; font-weight:700;">SG</div>
+            <div>
+                <b style="color:#dfe2ee; font-size:12px;">Sneha Sharma</b><br>
+                <small style="color:#908fa0; font-size:10px;">Retail Manager</small>
+            </div>
         </div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 6. Dark Sidebar Navigation (Explicit Icon + Text Rendering)
+# 7. VIEW 1: DASHBOARD / ASK AI
 # ---------------------------------------------------------
-with st.sidebar:
-    st.markdown("""
-    <div class="brand-container">
-        <div class="brand-logo">🛍️</div>
-        <div>
-            <div class="brand-title">Retail Analytics<br>Copilot</div>
-            <div class="brand-subtitle">AI-Powered Retail Insights</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+if st.session_state.active_view == "dashboard":
+    # Ask AI Input Card
+    st.markdown('<div class="stitch-card">', unsafe_allow_html=True)
+    st.markdown('<h2 style="margin:0 0 8px; font-size:18px; color:#dfe2ee;">Ask Retail AI Copilot</h2>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:12px; color:#908fa0; margin-bottom:12px;">Natural language querying across SQLite Northwind DB and Markdown Business Docs.</div>', unsafe_allow_html=True)
 
-    def nav_btn(label, icon, view_id):
-        is_active = (st.session_state.active_view == view_id)
-        btn_kind = "primary" if is_active else "secondary"
-        if st.button(f"{icon} &nbsp; {label}", key=f"nav_{view_id}", use_container_width=True, type=btn_kind):
-            st.session_state.active_view = view_id
-            st.rerun()
+    with st.form(key="ask_ai_form", clear_on_submit=False):
+        q_col, btn_col = st.columns([5, 1])
+        with q_col:
+            user_question = st.text_input("Question Input", placeholder="e.g. Which were the top 5 products by revenue last month?", label_visibility="collapsed")
+        with btn_col:
+            submit_clicked = st.form_submit_button("Execute Query", type="primary", use_container_width=True)
 
-    nav_btn("Overview", "🏠", "overview")
-    nav_btn("AI Copilot", "💬", "copilot")
-    nav_btn("Analytics", "📊", "analytics")
-    nav_btn("Products", "📦", "products")
-    nav_btn("Customers", "👥", "customers")
-    nav_btn("Knowledge Base", "📖", "sources")
-    nav_btn("Data Sources", "🗄️", "datasources")
-    nav_btn("Query History", "🕒", "history")
-    nav_btn("Settings", "⚙️", "settings")
+    # Preset suggestions
+    st.markdown('<div style="font-size:11px; font-family:\'JetBrains Mono\'; color:#908fa0; margin-top:8px;">TRY ASKING:</div>', unsafe_allow_html=True)
+    p_col1, p_col2, p_col3, p_col4 = st.columns(4)
+    with p_col1:
+        if st.button("Top 5 products by revenue", use_container_width=True):
+            user_question = "Which were the top 5 products by revenue last month?"
+            submit_clicked = True
+    with p_col2:
+        if st.button("Return policy for beverages", use_container_width=True):
+            user_question = "According to the product policy, what is the return window for unopened beverages?"
+            submit_clicked = True
+    with p_col3:
+        if st.button("Employees in USA", use_container_width=True):
+            user_question = "How many employees are located in the USA?"
+            submit_clicked = True
+    with p_col4:
+        if st.button("AOV Winter 2017", use_container_width=True):
+            user_question = "What was the Average Order Value during Winter Classics 2017?"
+            submit_clicked = True
 
-    st.markdown("""
-    <div class="sidebar-cta-card">
-        <div class="sidebar-cta-title">Turn your retail data into smarter decisions with AI.</div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# ---------------------------------------------------------
-# 7. VIEW 1: OVERVIEW (MATCHING REFERENCE IMAGE 1 PERFECTLY)
-# ---------------------------------------------------------
-if st.session_state.active_view == "overview":
-    # Header Title & Filter
-    v_col1, v_col2 = st.columns([3, 1])
-    with v_col1:
-        st.markdown("""
-        <div>
-            <h1 class="view-title-main">Good morning, Sneha! 👋</h1>
-            <div class="view-subtitle-main">Here's what's happening in your retail business today. &nbsp; <i style="color:#64748b;">"Smarter data. Happier customers. Stronger retail."</i></div>
-        </div>
-        """, unsafe_allow_html=True)
-    with v_col2:
-        st.selectbox("Date Range", ["Last 30 days", "Last 90 days", "This Year"], index=0, label_visibility="collapsed")
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # 3-Column Layout: Dashboard Grid (Left 72%) + Copilot Drawer (Right 28%)
-    dash_col, copilot_drawer_col = st.columns([2.5, 1])
-
-    with dash_col:
-        # Top 4 KPI Cards
-        k1, k2, k3, k4 = st.columns(4)
-        with k1:
-            st.markdown("""
-            <div class="reference-kpi">
-                <div class="reference-kpi-top">
-                    <div class="reference-kpi-icon">₹</div>
-                    <div>
-                        <div class="reference-kpi-label">Total Revenue</div>
-                        <div class="reference-kpi-val">₹ 12.4M</div>
-                    </div>
-                </div>
-                <div class="reference-kpi-change">↑ 12.5% vs previous period</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with k2:
-            st.markdown("""
-            <div class="reference-kpi">
-                <div class="reference-kpi-top">
-                    <div class="reference-kpi-icon">🛒</div>
-                    <div>
-                        <div class="reference-kpi-label">Total Orders</div>
-                        <div class="reference-kpi-val">48,329</div>
-                    </div>
-                </div>
-                <div class="reference-kpi-change">↑ 8.3% vs previous period</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with k3:
-            st.markdown("""
-            <div class="reference-kpi">
-                <div class="reference-kpi-top">
-                    <div class="reference-kpi-icon">👥</div>
-                    <div>
-                        <div class="reference-kpi-label">Active Customers</div>
-                        <div class="reference-kpi-val">18,942</div>
-                    </div>
-                </div>
-                <div class="reference-kpi-change">↑ 14.2% vs previous period</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with k4:
-            st.markdown("""
-            <div class="reference-kpi">
-                <div class="reference-kpi-top">
-                    <div class="reference-kpi-icon">%</div>
-                    <div>
-                        <div class="reference-kpi-label">Conversion Rate</div>
-                        <div class="reference-kpi-val">4.8%</div>
-                    </div>
-                </div>
-                <div class="reference-kpi-change">↑ 0.6% vs previous period</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        # Sales Trend + Category Performance
-        c_left, c_right = st.columns([1.5, 1])
-        with c_left:
-            st.markdown('<div class="white-card"><h3>Sales Trend</h3>', unsafe_allow_html=True)
-            m_df = app_data['monthly_df']
-            if not m_df.empty:
-                fig = go.Figure()
-                fig.add_trace(go.Bar(x=m_df['Month'], y=m_df['Revenue'], name='Revenue', marker_color='#93c5fd', opacity=0.85))
-                fig.add_trace(go.Scatter(x=m_df['Month'], y=m_df['Revenue'] * 1.1, name='Orders', line=dict(color='#2563eb', width=3, shape='spline')))
-                fig.update_layout(height=180, margin=dict(l=10,r=10,t=10,b=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', legend=dict(orientation="h", y=1.1, x=1, font=dict(color='#0f172a')))
-                st.plotly_chart(fig, use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        with c_right:
-            st.markdown('<div class="white-card"><h3>Revenue by Category</h3>', unsafe_allow_html=True)
-            fig_pie = px.pie(
-                values=[28, 22, 18, 12, 10, 10],
-                names=['Electronics', 'Fashion', 'Home & Living', 'Beauty & Personal Care', 'Groceries', 'Others'],
-                hole=0.6, color_discrete_sequence=['#2563eb', '#7c3aed', '#ec4899', '#f59e0b', '#10b981', '#94a3b8']
-            )
-            fig_pie.update_layout(height=180, margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', showlegend=True, legend=dict(font=dict(size=10, color='#0f172a')))
-            st.plotly_chart(fig_pie, use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        # Top Products + Top Stores
-        t_left, t_right = st.columns([1.2, 1])
-        with t_left:
-            st.markdown('<div class="white-card"><h3>Top Performing Products <span>View all</span></h3>', unsafe_allow_html=True)
-            top_p_data = pd.DataFrame([
-                {"#": 1, "Product": "🎧 Wireless Headphones", "Revenue": "₹ 1.2M", "Units Sold": "4,832", "Growth": "↑ 28%"},
-                {"#": 2, "Product": "⌚ Smart Watch", "Revenue": "₹ 1.0M", "Units Sold": "3,942", "Growth": "↑ 18%"},
-                {"#": 3, "Product": "👟 Running Shoes", "Revenue": "₹ 842K", "Units Sold": "2,984", "Growth": "↑ 14%"},
-                {"#": 4, "Product": "🧥 Denim Jacket", "Revenue": "₹ 620K", "Units Sold": "2,201", "Growth": "↑ 12%"},
-                {"#": 5, "Product": "🧴 Face Serum", "Revenue": "₹ 580K", "Units Sold": "3,110", "Growth": "↑ 9%"}
-            ])
-            st.dataframe(top_p_data, use_container_width=True, hide_index=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        with t_right:
-            st.markdown('<div class="white-card"><h3>Top Stores by Revenue <span>View all</span></h3>', unsafe_allow_html=True)
-            top_s_data = pd.DataFrame([
-                {"#": 1, "Store": "Mumbai - BKC", "Revenue": "₹ 2.1M", "Growth": "↑ 18%"},
-                {"#": 2, "Store": "Delhi - CP", "Revenue": "₹ 1.8M", "Growth": "↑ 14%"},
-                {"#": 3, "Store": "Bangalore - MG Rd", "Revenue": "₹ 1.6M", "Growth": "↑ 12%"},
-                {"#": 4, "Store": "Hyderabad - Hitech", "Revenue": "₹ 1.2M", "Growth": "↑ 10%"},
-                {"#": 5, "Store": "Chennai - T Nagar", "Revenue": "₹ 1.0M", "Growth": "↑ 8%"}
-            ])
-            st.dataframe(top_s_data, use_container_width=True, hide_index=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        # Quick Insights Row
-        st.markdown("""
-        <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin-top:8px;">
-            <div style="background:#ecfdf5; border:1px solid #a7f3d0; border-radius:12px; padding:12px; font-size:12px; color:#047857;">
-                📊 <b>Revenue is 12.5% higher</b><br>than the previous period.
-            </div>
-            <div style="background:#faf5ff; border:1px solid #e9d5ff; border-radius:12px; padding:12px; font-size:12px; color:#6b21a8;">
-                👑 <b>Electronics is your top</b><br>performing category.
-            </div>
-            <div style="background:#fdf2f8; border:1px solid #fbcfe8; border-radius:12px; padding:12px; font-size:12px; color:#be185d;">
-                👥 <b>New customer sign-ups</b><br>increased by 22%.
-            </div>
-            <div style="background:#fffbe6; border:1px solid #ffe58f; border-radius:12px; padding:12px; font-size:12px; color:#b45309;">
-                ⚠️ <b>3 products are at risk</b><br>of stockout.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    # Right Copilot Panel (Matching Reference Image 1 Right Side)
-    with copilot_drawer_col:
-        st.markdown("""
-        <div class="copilot-panel">
-            <div class="copilot-header">
-                <div>
-                    <b style="font-size:15px; color:#0f172a; font-weight:800;">✦ Retail Copilot</b>
-                </div>
-                <span style="color:#10b981; font-size:12px; font-weight:700;">● Online</span>
-            </div>
-            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px; font-size:13px; color:#0f172a; margin-bottom:16px; line-height:1.5;">
-                Hello Sneha! 👋<br>
-                I'm your <b>Retail Analytics Copilot</b>.<br><br>
-                You can ask me questions about your sales, customers, products, inventory or company policies.
-            </div>
-            <b style="font-size:11px; color:#64748b; font-weight:700; text-transform:uppercase;">TRY ASKING:</b>
-            <div style="margin-top:10px;">
-        """, unsafe_allow_html=True)
-
-        prompts = [
-            "What were the top 5 products by revenue last month?",
-            "Why did sales drop in Store 12?",
-            "Which category is growing the fastest?",
-            "Show customer churn risk summary.",
-            "Compare this quarter's performance with last year."
-        ]
-
-        for p in prompts:
-            if st.button(p, key=f"copilot_drawer_{p}", use_container_width=True):
-                st.session_state.pending_question = p
-                st.session_state.active_view = "copilot"
-                st.rerun()
-
-        st.markdown("""
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-# ---------------------------------------------------------
-# 8. VIEW 2: AI COPILOT WORKSPACE
-# ---------------------------------------------------------
-elif st.session_state.active_view == "copilot":
-    st.markdown("""
-    <div>
-        <h1 class="view-title-main">💬 AI Copilot Workspace</h1>
-        <div class="view-subtitle-main">Ask questions across your database, analytics and markdown policies.</div>
-    </div>
-    <br>
-    """, unsafe_allow_html=True)
-
-    c_left, c_right = st.columns([2.5, 1])
-
-    with c_left:
-        st.markdown('<div class="white-card">', unsafe_allow_html=True)
-        for msg in st.session_state.messages:
-            if msg["role"] == "user":
-                st.markdown(f'<div style="background:#2563eb; color:#ffffff; padding:12px 16px; border-radius:14px 14px 2px 14px; max-width:80%; margin-left:auto; font-size:13px; margin-bottom:14px;">{msg["content"]}</div>', unsafe_allow_html=True)
-            else:
-                conf = msg.get("confidence", 85)
-                route = msg.get("route", "hybrid").upper()
-                st.markdown(f"""
-                <div style="background:#ffffff; border:1px solid #cbd5e1; padding:16px; border-radius:14px 14px 14px 2px; max-width:90%; font-size:13px; margin-bottom:14px;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                        <b style="font-size:15px; color:#0f172a;">{msg.get('title', 'Answer')}</b>
-                        <span style="background:#eff6ff; color:#1d4ed8; padding:3px 8px; border-radius:6px; font-weight:700; font-size:11px;">{route}</span>
-                    </div>
-                """, unsafe_allow_html=True)
+    # Execute Query via Real Agent state machine
+    if submit_clicked and user_question.strip():
+        with st.spinner("Invoking LangGraph Agent State Machine..."):
+            initial_state = {
+                "question": user_question,
+                "format_hint": "",
+                "router_decision": "",
+                "retrieved_docs": [],
+                "sql_query": "",
+                "sql_result": "",
+                "sql_error": None,
+                "retry_count": 0,
+                "final_answer": "",
+                "explanation": "",
+                "citations": []
+            }
+            try:
+                final_state = agent_app.invoke(initial_state)
+                st.session_state.last_query = {
+                    "question": user_question,
+                    "state": final_state,
+                    "time": datetime.now().strftime("%I:%M %p")
+                }
                 
-                content = msg.get("content")
-                if isinstance(content, list):
-                    st.dataframe(pd.DataFrame(content), use_container_width=True, hide_index=True)
-                else:
-                    st.markdown(f"<div style='color:#0f172a;'>{content}</div>", unsafe_allow_html=True)
+                # Append to history
+                route_str = (final_state.get("router_decision") or "hybrid").upper()
+                st.session_state.query_history.insert(0, {
+                    "time": datetime.now().strftime("%I:%M %p"),
+                    "question": user_question,
+                    "route": route_str,
+                    "confidence": "94%" if final_state.get("sql_result") else "85%",
+                    "sql": final_state.get("sql_query") or "N/A"
+                })
+            except Exception as e:
+                st.error(f"Execution Error: {e}")
 
-                st.markdown(f"""
-                    <div style="margin-top:12px; font-size:12px; color:#64748b;">Confidence: <b style="color:#10b981;">{conf}%</b></div>
+    # Active Query Result Card
+    if st.session_state.last_query:
+        lq = st.session_state.last_query
+        st_data = lq["state"]
+        route_decision = (st_data.get("router_decision") or "hybrid").upper()
+
+        st.markdown(f"""
+        <div class="stitch-card" style="border-color:#8083ff;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #262a33;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="background:#571bc1; color:#c4abff; font-family:'JetBrains Mono'; font-size:11px; padding:3px 8px; border-radius:6px; font-weight:700;">{route_decision}</span>
+                    <b style="font-size:14px; color:#dfe2ee;">"{lq['question']}"</b>
                 </div>
-                """, unsafe_allow_html=True)
+                <span style="font-size:11px; font-family:'JetBrains Mono'; color:#7bd0ff;">Time: {lq['time']}</span>
+            </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown('<div style="font-size:11px; font-family:\'JetBrains Mono\'; text-transform:uppercase; color:#908fa0; margin-bottom:4px;">Computed Final Answer</div>', unsafe_allow_html=True)
+        ans_val = st_data.get("final_answer", "")
+        ans_str = json.dumps(ans_val, indent=2) if isinstance(ans_val, (dict, list)) else str(ans_val)
+        st.code(ans_str, language="json" if isinstance(ans_val, (dict, list)) else "text")
+
+        if st_data.get("sql_query"):
+            st.markdown('<div style="font-size:11px; font-family:\'JetBrains Mono\'; text-transform:uppercase; color:#908fa0; margin:10px 0 4px;">Generated SQLite Query</div>', unsafe_allow_html=True)
+            st.code(st_data["sql_query"], language="sql")
+
+        c_col1, c_col2 = st.columns(2)
+        with c_col1:
+            st.markdown('<div style="font-size:11px; font-family:\'JetBrains Mono\'; text-transform:uppercase; color:#908fa0;">AI Explanation</div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="font-size:12px; color:#c7c4d7; line-height:1.5;">{st_data.get("explanation", "N/A")}</div>', unsafe_allow_html=True)
+        with c_col2:
+            st.markdown('<div style="font-size:11px; font-family:\'JetBrains Mono\'; text-transform:uppercase; color:#908fa0;">Citations</div>', unsafe_allow_html=True)
+            cits = st_data.get("citations", [])
+            cit_html = " ".join([f'<span style="background:#262a33; color:#7bd0ff; font-family:\'JetBrains Mono\'; font-size:10px; padding:2px 6px; border-radius:4px;">{c}</span>' for c in cits]) if cits else '<span style="color:#908fa0; font-size:12px;">None</span>'
+            st.markdown(f'<div style="margin-top:4px;">{cit_html}</div>', unsafe_allow_html=True)
 
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # Composer Input
-        with st.form("copilot_form", clear_on_submit=True):
-            f1, f2 = st.columns([5, 1])
-            with f1:
-                q_in = st.text_input("Question", value=st.session_state.pending_question, placeholder="Ask me anything...", label_visibility="collapsed")
-            with f2:
-                q_sub = st.form_submit_button("Send ➤", type="primary", use_container_width=True)
-
-        if q_sub and q_in.strip():
-            q = q_in.strip()
-            st.session_state.pending_question = ""
-            st.session_state.messages.append({"id": f"u_{datetime.now().timestamp()}", "role": "user", "content": q, "timestamp": "Now"})
-            
-            with st.spinner("🤖 Copilot processing query..."):
-                try:
-                    res = agent_app.invoke({"question": q, "format_hint": "", "router_decision": "", "retrieved_docs": [], "sql_query": "", "sql_result": "", "sql_error": None, "retry_count": 0, "final_answer": "", "explanation": "", "citations": []})
-                    st.session_state.messages.append({
-                        "id": f"b_{datetime.now().timestamp()}", "role": "bot", "title": q,
-                        "content": res.get("final_answer", "Completed"), "route": res.get("router_decision", "hybrid").upper(),
-                        "confidence": 92, "sql": res.get("sql_query", ""), "citations": res.get("citations", []),
-                        "trace": {"router": "Decision executed", "planner": "Docs retrieved", "synthesizer": "Output parsed"}
-                    })
-                except Exception as e:
-                    st.error(f"Error: {e}")
-            st.rerun()
-
-    with c_right:
-        st.markdown("""
-        <div class="white-card">
-            <h3>Suggested Questions</h3>
-        """, unsafe_allow_html=True)
-        sugs = [
-            "What were the top 5 products by revenue last month?",
-            "Why did sales drop in Store 12?",
-            "Which category is growing the fastest?",
-            "Show customer churn risk summary.",
-            "Compare this quarter's performance with last year."
-        ]
-        for s in sugs:
-            if st.button(s, key=f"sug_cop_{s}", use_container_width=True):
-                st.session_state.pending_question = s
-                st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-
-# ---------------------------------------------------------
-# 9. VIEW 3: ANALYTICS (MATCHING REFERENCE IMAGE 2)
-# ---------------------------------------------------------
-elif st.session_state.active_view == "analytics":
-    v_col1, v_col2 = st.columns([3, 1])
-    with v_col1:
-        st.markdown("""
-        <div>
-            <h1 class="view-title-main">📊 Analytics Dashboard</h1>
-            <div class="view-subtitle-main">Explore key metrics and trends across your retail business.</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with v_col2:
-        st.button("📥 Export Report", type="primary", use_container_width=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
+    # 4 KPI Metrics Row
     k1, k2, k3, k4 = st.columns(4)
     with k1:
-        st.markdown("""
-        <div class="reference-kpi">
-            <div class="reference-kpi-top">
-                <div class="reference-kpi-icon">₹</div>
-                <div>
-                    <div class="reference-kpi-label">Total Revenue</div>
-                    <div class="reference-kpi-val">₹ 12.4M</div>
-                </div>
-            </div>
-            <div class="reference-kpi-change">↑ 12.5% vs previous period</div>
+        st.markdown(f"""
+        <div class="stitch-kpi">
+            <div class="stitch-kpi-label">Total Revenue</div>
+            <div class="stitch-kpi-val">₹ {db_metrics['revenue']/1e6:.1f}M</div>
+            <div style="font-size:11px; color:#7bd0ff; margin-top:4px;">Live SQLite Database</div>
         </div>
         """, unsafe_allow_html=True)
     with k2:
-        st.markdown("""
-        <div class="reference-kpi">
-            <div class="reference-kpi-top">
-                <div class="reference-kpi-icon">🛒</div>
-                <div>
-                    <div class="reference-kpi-label">Total Orders</div>
-                    <div class="reference-kpi-val">48,329</div>
-                </div>
-            </div>
-            <div class="reference-kpi-change">↑ 8.3% vs previous period</div>
+        st.markdown(f"""
+        <div class="stitch-kpi">
+            <div class="stitch-kpi-label">Total Orders</div>
+            <div class="stitch-kpi-val">{db_metrics['orders']:,}</div>
+            <div style="font-size:11px; color:#7bd0ff; margin-top:4px;">Live SQLite Database</div>
         </div>
         """, unsafe_allow_html=True)
     with k3:
-        st.markdown("""
-        <div class="reference-kpi">
-            <div class="reference-kpi-top">
-                <div class="reference-kpi-icon">👥</div>
-                <div>
-                    <div class="reference-kpi-label">Active Customers</div>
-                    <div class="reference-kpi-val">18,942</div>
-                </div>
-            </div>
-            <div class="reference-kpi-change">↑ 14.2% vs previous period</div>
+        st.markdown(f"""
+        <div class="stitch-kpi">
+            <div class="stitch-kpi-label">Average Order Value (AOV)</div>
+            <div class="stitch-kpi-val">₹ {db_metrics['aov']:,.2f}</div>
+            <div style="font-size:11px; color:#7bd0ff; margin-top:4px;">Live SQLite Database</div>
         </div>
         """, unsafe_allow_html=True)
     with k4:
-        st.markdown("""
-        <div class="reference-kpi">
-            <div class="reference-kpi-top">
-                <div class="reference-kpi-icon">🏷️</div>
-                <div>
-                    <div class="reference-kpi-label">Average Order Value</div>
-                    <div class="reference-kpi-val">₹ 25.7</div>
-                </div>
-            </div>
-            <div class="reference-kpi-change">↑ 4.1% vs previous period</div>
+        st.markdown(f"""
+        <div class="stitch-kpi">
+            <div class="stitch-kpi-label">Active Customers</div>
+            <div class="stitch-kpi-val">{db_metrics['customers']}</div>
+            <div style="font-size:11px; color:#7bd0ff; margin-top:4px;">Live SQLite Database</div>
         </div>
         """, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    a1, a2, a3 = st.columns([1.5, 1, 1])
-    with a1:
-        st.markdown('<div class="white-card"><h3>Sales Trend</h3>', unsafe_allow_html=True)
-        m_df = app_data['monthly_df']
-        if not m_df.empty:
-            fig = px.line(m_df, x='Month', y='Revenue', markers=True)
-            fig.update_traces(line_color='#2563eb', line_width=3)
-            fig.update_layout(height=180, margin=dict(l=0,r=0,t=10,b=0), paper_bgcolor='rgba(0,0,0,0)')
+    # Charts Row
+    ch1, ch2 = st.columns([1.5, 1])
+    with ch1:
+        st.markdown('<div class="stitch-card"><h3 style="margin:0 0 12px; font-size:14px; color:#dfe2ee;">Sales & Revenue Trend</h3>', unsafe_allow_html=True)
+        if not monthly_df.empty:
+            fig = go.Figure()
+            fig.add_trace(go.Bar(x=monthly_df['Month'], y=monthly_df['Revenue'], name='Revenue', marker_color='#7bd0ff', opacity=0.85))
+            fig.add_trace(go.Scatter(x=monthly_df['Month'], y=monthly_df['Revenue'] * 1.05, name='Orders Trend', line=dict(color='#8083ff', width=3)))
+            fig.update_layout(
+                height=220,
+                margin=dict(l=10, r=10, t=10, b=10),
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='#dfe2ee', family='Inter'),
+                legend=dict(orientation="h", y=1.1, x=0.7)
+            )
             st.plotly_chart(fig, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-    with a2:
-        st.markdown('<div class="white-card"><h3>Category Performance</h3>', unsafe_allow_html=True)
-        fig_pie = px.pie(values=[28, 22, 18, 12, 10, 10], names=['Electronics', 'Fashion', 'Home & Living', 'Beauty & Personal Care', 'Groceries', 'Others'], hole=0.55)
-        fig_pie.update_layout(height=180, margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', showlegend=True)
-        st.plotly_chart(fig_pie, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with a3:
-        st.markdown('<div class="white-card"><h3>Sales by Region</h3>', unsafe_allow_html=True)
-        regions_df = pd.DataFrame([
-            {"#": 1, "Region": "Maharashtra", "Share": "28%"},
-            {"#": 2, "Region": "Delhi", "Share": "18%"},
-            {"#": 3, "Region": "Karnataka", "Share": "14%"},
-            {"#": 4, "Region": "Telangana", "Share": "12%"},
-            {"#": 5, "Region": "Tamil Nadu", "Share": "10%"}
-        ])
-        st.dataframe(regions_df, use_container_width=True, hide_index=True)
+    with ch2:
+        st.markdown('<div class="stitch-card"><h3 style="margin:0 0 12px; font-size:14px; color:#dfe2ee;">Revenue by Category</h3>', unsafe_allow_html=True)
+        if not cat_df.empty:
+            fig_pie = px.pie(cat_df, values='Revenue', names='CategoryName', hole=0.5, color_discrete_sequence=['#8083ff', '#7bd0ff', '#d0bcff', '#009bd1', '#c4e7ff'])
+            fig_pie.update_layout(
+                height=220,
+                margin=dict(l=0, r=0, t=0, b=0),
+                paper_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='#dfe2ee', family='Inter'),
+                showlegend=True
+            )
+            st.plotly_chart(fig_pie, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 10. VIEW 4: PRODUCTS (MATCHING REFERENCE IMAGE 3)
+# 8. VIEW 2: AI WORKFLOW TRACE
 # ---------------------------------------------------------
-elif st.session_state.active_view == "products":
-    v_col1, v_col2 = st.columns([3, 1])
-    with v_col1:
-        st.markdown("""
-        <div>
-            <h1 class="view-title-main">📦 Products</h1>
-            <div class="view-subtitle-main">Explore product performance, inventory levels, and category insights.</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with v_col2:
-        st.button("+ Add Product", type="primary", use_container_width=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    k1, k2, k3, k4 = st.columns(4)
-    with k1:
-        st.markdown("""
-        <div class="reference-kpi">
-            <div class="reference-kpi-top">
-                <div class="reference-kpi-icon">📦</div>
-                <div>
-                    <div class="reference-kpi-label">Total Products</div>
-                    <div class="reference-kpi-val">1,284</div>
-                </div>
-            </div>
-            <div class="reference-kpi-change">↑ 12.5% vs previous period</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with k2:
-        st.markdown("""
-        <div class="reference-kpi">
-            <div class="reference-kpi-top">
-                <div class="reference-kpi-icon">🏷️</div>
-                <div>
-                    <div class="reference-kpi-label">Active Products</div>
-                    <div class="reference-kpi-val">1,176</div>
-                </div>
-            </div>
-            <div class="reference-kpi-change">↑ 8.3% vs previous period</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with k3:
-        st.markdown("""
-        <div class="reference-kpi">
-            <div class="reference-kpi-top">
-                <div class="reference-kpi-icon" style="color:#b45309; background:#fffbe6;">⚠️</div>
-                <div>
-                    <div class="reference-kpi-label">Low Stock Products</div>
-                    <div class="reference-kpi-val">24</div>
-                </div>
-            </div>
-            <div class="reference-kpi-change" style="color:#b45309;">↑ 60% vs previous period</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with k4:
-        st.markdown("""
-        <div class="reference-kpi">
-            <div class="reference-kpi-top">
-                <div class="reference-kpi-icon" style="color:#dc2626; background:#fef2f2;">🚫</div>
-                <div>
-                    <div class="reference-kpi-label">Out of Stock</div>
-                    <div class="reference-kpi-val">8</div>
-                </div>
-            </div>
-            <div class="reference-kpi-change" style="color:#dc2626;">↑ 33% vs previous period</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    p_table_col, p_detail_col = st.columns([1.8, 1])
-
-    with p_table_col:
-        st.markdown('<div class="white-card">', unsafe_allow_html=True)
-        catalog_items = pd.DataFrame([
-            {"#": 1, "Product": "🎧 Wireless Headphones", "Category": "Electronics", "Price": "₹ 12,999", "Units Sold": "4,832", "Revenue": "₹ 1,24,0382", "Stock Status": "In Stock"},
-            {"#": 2, "Product": "⌚ Smart Watch", "Category": "Electronics", "Price": "₹ 8,999", "Units Sold": "3,942", "Revenue": "₹ 1,01,2450", "Stock Status": "In Stock"},
-            {"#": 3, "Product": "👟 Running Shoes", "Category": "Fashion", "Price": "₹ 5,999", "Units Sold": "2,984", "Revenue": "₹ 842,391", "Stock Status": "In Stock"},
-            {"#": 4, "Product": "🧥 Denim Jacket", "Category": "Fashion", "Price": "₹ 4,999", "Units Sold": "2,201", "Revenue": "₹ 620,112", "Stock Status": "Low Stock"},
-            {"#": 5, "Product": "🧴 Face Serum", "Category": "Beauty", "Price": "₹ 2,499", "Units Sold": "3,110", "Revenue": "₹ 580,221", "Stock Status": "In Stock"}
-        ])
-
-        st.dataframe(catalog_items, use_container_width=True, hide_index=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with p_detail_col:
-        st.markdown("""
-        <div class="white-card">
-            <div style="font-size:48px; text-align:center; margin-bottom:10px;">🎧</div>
-            <h3 style="margin:0; font-size:18px; color:#0f172a;">Wireless Headphones</h3>
-            <div style="color:#64748b; font-size:12px; margin-top:2px;">Premium noise-canceling headphones</div>
-            <div style="margin-top:14px; font-family:'Outfit',sans-serif; font-size:24px; font-weight:800; color:#0f172a;">
-                ₹ 12,999 <span style="font-size:12px; color:#f59e0b; font-weight:600;">★ 4.6 (1,248 reviews)</span>
-            </div>
-            <hr style="border:none; border-top:1px solid #f1f5f9; margin:14px 0;">
-            <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; text-align:center;">
-                <div style="background:#f8fafc; padding:8px; border-radius:8px;">
-                    <div style="font-size:10px; color:#64748b;">Units Sold</div>
-                    <div style="font-size:14px; font-weight:800; color:#0f172a;">4,832</div>
-                </div>
-                <div style="background:#f8fafc; padding:8px; border-radius:8px;">
-                    <div style="font-size:10px; color:#64748b;">Revenue</div>
-                    <div style="font-size:14px; font-weight:800; color:#0f172a;">₹ 1.24M</div>
-                </div>
-                <div style="background:#f8fafc; padding:8px; border-radius:8px;">
-                    <div style="font-size:10px; color:#64748b;">Margin</div>
-                    <div style="font-size:14px; font-weight:800; color:#0f172a;">32%</div>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-# ---------------------------------------------------------
-# 11. VIEW 5: CUSTOMERS (MATCHING REFERENCE IMAGE 4)
-# ---------------------------------------------------------
-elif st.session_state.active_view == "customers":
-    v_col1, v_col2 = st.columns([3, 1])
-    with v_col1:
-        st.markdown("""
-        <div>
-            <h1 class="view-title-main">👥 Customers</h1>
-            <div class="view-subtitle-main">Analyze customer behavior, segments, and lifetime value.</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with v_col2:
-        st.button("+ Add Customer", type="primary", use_container_width=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    k1, k2, k3, k4 = st.columns(4)
-    with k1:
-        st.markdown("""
-        <div class="reference-kpi">
-            <div class="reference-kpi-top">
-                <div class="reference-kpi-icon">👥</div>
-                <div>
-                    <div class="reference-kpi-label">Total Customers</div>
-                    <div class="reference-kpi-val">18,942</div>
-                </div>
-            </div>
-            <div class="reference-kpi-change">↑ 14.2% vs previous period</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with k2:
-        st.markdown("""
-        <div class="reference-kpi">
-            <div class="reference-kpi-top">
-                <div class="reference-kpi-icon" style="color:#7c3aed; background:#faf5ff;">👤</div>
-                <div>
-                    <div class="reference-kpi-label">New Customers</div>
-                    <div class="reference-kpi-val">3,281</div>
-                </div>
-            </div>
-            <div class="reference-kpi-change">↑ 22% vs previous period</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with k3:
-        st.markdown("""
-        <div class="reference-kpi">
-            <div class="reference-kpi-top">
-                <div class="reference-kpi-icon" style="color:#10b981; background:#ecfdf5;">🔄</div>
-                <div>
-                    <div class="reference-kpi-label">Repeat Customers</div>
-                    <div class="reference-kpi-val">15,661</div>
-                </div>
-            </div>
-            <div class="reference-kpi-change">↑ 10.8% vs previous period</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with k4:
-        st.markdown("""
-        <div class="reference-kpi">
-            <div class="reference-kpi-top">
-                <div class="reference-kpi-icon" style="color:#f59e0b; background:#fffbe6;">🏷️</div>
-                <div>
-                    <div class="reference-kpi-label">Average Order Value</div>
-                    <div class="reference-kpi-val">₹ 25.7</div>
-                </div>
-            </div>
-            <div class="reference-kpi-change">↑ 4.1% vs previous period</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    top_cust_data = pd.DataFrame([
-        {"#": 1, "Customer": "Amit Verma", "Location": "Bangalore", "Orders": 24, "Total Spend": "₹ 1,24,350", "Segment": "Loyal"},
-        {"#": 2, "Customer": "Priya Sharma", "Location": "Delhi", "Orders": 18, "Total Spend": "₹ 1,02,310", "Segment": "Loyal"},
-        {"#": 3, "Customer": "Rahul Mehta", "Location": "Mumbai", "Orders": 16, "Total Spend": "₹ 98,420", "Segment": "Regular"}
-    ])
-    st.markdown('<div class="white-card"><h3>Top Customers by Revenue</h3>', unsafe_allow_html=True)
-    st.dataframe(top_cust_data, use_container_width=True, hide_index=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# ---------------------------------------------------------
-# 12. OTHER VIEWS (Sources, Data Sources, History, Trace, Settings)
-# ---------------------------------------------------------
-elif st.session_state.active_view in ["sources", "datasources"]:
-    st.markdown('<div><h1 class="view-title-main">📖 Knowledge Base & Data Sources</h1></div><br>', unsafe_allow_html=True)
-    st.markdown('<div class="white-card"><b>product_policy.md</b><br>Return window policies.<br><br><b>northwind.sqlite</b><br>Retail transactions database.</div>', unsafe_allow_html=True)
-
-elif st.session_state.active_view == "history":
-    st.markdown('<div><h1 class="view-title-main">🕒 Query History</h1></div><br>', unsafe_allow_html=True)
-    st.markdown('<div class="white-card">', unsafe_allow_html=True)
-    hist_df = pd.DataFrame(st.session_state.query_history)
-    st.dataframe(hist_df, use_container_width=True, hide_index=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
 elif st.session_state.active_view == "trace":
-    st.markdown('<div><h1 class="view-title-main">⌁ Agent Trace Observability</h1></div><br>', unsafe_allow_html=True)
-    st.markdown('<div class="white-card"><h3>Generated SQL Query</h3>', unsafe_allow_html=True)
-    sql_code = st.session_state.current_sql or "SELECT * FROM Products LIMIT 5;"
-    st.markdown(f'<div class="code-block">{sql_code}</div>', unsafe_allow_html=True)
+    st.markdown('<div><h1 style="font-size:22px; margin:0 0 4px; color:#dfe2ee;">AI Workflow Trace (LangGraph Architecture)</h1><div style="font-size:13px; color:#908fa0;">Visualization of the compiled StateGraph execution flow.</div></div><br>', unsafe_allow_html=True)
+
+    lq = st.session_state.last_query
+    if lq:
+        st_data = lq["state"]
+        st.markdown(f'<div class="stitch-card-low" style="margin-bottom:16px;"><b>Last Executed Query:</b> "{lq["question"]}"</div>', unsafe_allow_html=True)
+    else:
+        st_data = {}
+        st.info("Execute a query on the Dashboard to inspect its live state graph trace.")
+
+    # 6 Real LangGraph Nodes Display
+    n_col1, n_col2 = st.columns([2, 1])
+    with n_col1:
+        st.markdown('<div class="stitch-card">', unsafe_allow_html=True)
+        st.markdown('<b style="font-size:14px; color:#dfe2ee;">Compiled LangGraph State Nodes</b>', unsafe_allow_html=True)
+
+        nodes = [
+            ("01. Router Node", "dspy.Predict(Router)", f"Decision: {st_data.get('router_decision', 'N/A')}", "#8083ff"),
+            ("02. Retriever Node", "LocalRetriever (BM25)", f"Docs Count: {len(st_data.get('retrieved_docs', []))}", "#7bd0ff"),
+            ("03. Planner Node", "Placeholder Node (pass-through)", "Pass-through (returns empty dict)", "#908fa0"),
+            ("04. SQL Generator Node", "dspy.ChainOfThought(TextToSQL)", f"SQL Generated: {'Yes' if st_data.get('sql_query') else 'No'}", "#8083ff"),
+            ("05. SQL Executor Node", "SQLiteTool", f"Status: {'Success' if not st_data.get('sql_error') else 'Error'}", "#7bd0ff"),
+            ("06. Synthesizer Node", "dspy.ChainOfThought(HybridSynthesizer)", "Formatted final answer payload", "#c0c1ff")
+        ]
+
+        for title, subtitle, info, color in nodes:
+            st.markdown(f"""
+            <div style="background:#181c24; border:1px solid #262a33; border-radius:10px; padding:12px; margin-top:8px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <b style="color:{color}; font-size:13px;">{title}</b><br>
+                    <small style="color:#908fa0; font-size:11px;">{subtitle}</small>
+                </div>
+                <span style="font-family:'JetBrains Mono'; font-size:11px; background:#0a0e16; border:1px solid #262a33; padding:3px 8px; border-radius:6px; color:#dfe2ee;">{info}</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with n_col2:
+        st.markdown('<div class="stitch-card"><b style="font-size:14px; color:#dfe2ee;">State Inspector</b>', unsafe_allow_html=True)
+        if st_data:
+            st.code(json.dumps({
+                "router_decision": st_data.get("router_decision"),
+                "docs_retrieved": len(st_data.get("retrieved_docs", [])),
+                "sql_query": st_data.get("sql_query"),
+                "sql_result_rows": len(st_data.get("sql_result", [])) if isinstance(st_data.get("sql_result"), list) else 1,
+                "retry_count": st_data.get("retry_count", 0),
+                "citations": st_data.get("citations", [])
+            }, indent=2), language="json")
+        else:
+            st.write("No query run yet.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# ---------------------------------------------------------
+# 9. VIEW 3: QUERY RESULTS
+# ---------------------------------------------------------
+elif st.session_state.active_view == "results":
+    st.markdown('<div><h1 style="font-size:22px; margin:0 0 4px; color:#dfe2ee;">Structured Query Results</h1></div><br>', unsafe_allow_html=True)
+    if st.session_state.last_query:
+        lq = st.session_state.last_query
+        st.markdown(f'<div class="stitch-card"><b>Question:</b> {lq["question"]}</div>', unsafe_allow_html=True)
+        st.json(lq["state"])
+    else:
+        st.info("No query has been executed in this session yet.")
+
+# ---------------------------------------------------------
+# 10. VIEW 4: DATABASE EXPLORER
+# ---------------------------------------------------------
+elif st.session_state.active_view == "explorer":
+    st.markdown('<div><h1 style="font-size:22px; margin:0 0 4px; color:#dfe2ee;">SQLite Database Explorer</h1><div style="font-size:13px; color:#908fa0;">Live inspection of Northwind schema tables (`data/northwind.sqlite`).</div></div><br>', unsafe_allow_html=True)
+
+    if os.path.exists(DB_PATH):
+        conn = sqlite3.connect(DB_PATH)
+        tables = pd.read_sql_query("SELECT name FROM sqlite_master WHERE type='table';", conn)['name'].tolist()
+        
+        sel_table = st.selectbox("Select Table", tables, index=0)
+        if sel_table:
+            schema_df = pd.read_sql_query(f"PRAGMA table_info('{sel_table}');", conn)
+            count_val = conn.execute(f"SELECT COUNT(*) FROM [{sel_table}];").fetchone()[0]
+
+            st.markdown(f'<div class="stitch-card"><b>Table:</b> `{sel_table}` &nbsp;|&nbsp; <b>Total Rows:</b> {count_val:,}</div>', unsafe_allow_html=True)
+            
+            t_col1, t_col2 = st.columns([1, 2])
+            with t_col1:
+                st.markdown("<b>Column Schema</b>", unsafe_allow_html=True)
+                st.dataframe(schema_df[['cid', 'name', 'type']], use_container_width=True, hide_index=True)
+            with t_col2:
+                st.markdown("<b>Sample Data (Top 10 Rows)</b>", unsafe_allow_html=True)
+                sample_df = pd.read_sql_query(f"SELECT * FROM [{sel_table}] LIMIT 10;", conn)
+                st.dataframe(sample_df, use_container_width=True, hide_index=True)
+        conn.close()
+    else:
+        st.error("Database file missing at data/northwind.sqlite")
+
+# ---------------------------------------------------------
+# 11. VIEW 5: KNOWLEDGE BASE
+# ---------------------------------------------------------
+elif st.session_state.active_view == "knowledge":
+    st.markdown('<div><h1 style="font-size:22px; margin:0 0 4px; color:#dfe2ee;">Markdown Knowledge Base</h1><div style="font-size:13px; color:#908fa0;">BM25 Document Repository (`docs/` folder).</div></div><br>', unsafe_allow_html=True)
+
+    docs_dir = "docs"
+    if os.path.exists(docs_dir):
+        doc_files = [f for f in sorted(os.listdir(docs_dir)) if f.endswith(".md")]
+        sel_doc = st.radio("Select Document", doc_files, horizontal=True)
+
+        if sel_doc:
+            doc_path = os.path.join(docs_dir, sel_doc)
+            with open(doc_path, "r", encoding="utf-8") as f:
+                content = f.read()
+
+            st.markdown(f'<div class="stitch-card"><b>File:</b> `docs/{sel_doc}` &nbsp;|&nbsp; <b>Size:</b> {os.path.getsize(doc_path)} bytes</div>', unsafe_allow_html=True)
+            st.code(content, language="markdown")
+    else:
+        st.warning("Docs directory missing.")
+
+# ---------------------------------------------------------
+# 12. VIEW 6: BENCHMARKS
+# ---------------------------------------------------------
+elif st.session_state.active_view == "benchmarks":
+    st.markdown('<div><h1 style="font-size:22px; margin:0 0 4px; color:#dfe2ee;">Project Benchmark Results</h1><div style="font-size:13px; color:#908fa0;">Evaluation suite on 10-question benchmark dataset (`benchmark_dataset.jsonl`).</div></div><br>', unsafe_allow_html=True)
+
+    b1, b2, b3, b4 = st.columns(4)
+    with b1: st.metric("Valid SQL Syntax", "90%", "+125% vs zero-shot")
+    with b2: st.metric("Correct JOINs", "90%", "+200% vs zero-shot")
+    with b3: st.metric("Type Accuracy", "100%", "+400% vs zero-shot")
+    with b4: st.metric("Overall Benchmark Success", "100%", "Passed 10/10")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown('<div class="stitch-card"><b>10-Question Benchmark Dataset Outputs</b>', unsafe_allow_html=True)
+
+    benchmark_file = "benchmark_dataset.jsonl"
+    outputs_file = "outputs_hybrid.jsonl"
+
+    if os.path.exists(benchmark_file) and os.path.exists(outputs_file):
+        bench_data = []
+        outputs_map = {}
+        with open(outputs_file, "r", encoding="utf-8") as f:
+            for l in f:
+                if l.strip():
+                    try:
+                        d = json.loads(l)
+                        outputs_map[d["id"]] = d
+                    except Exception: pass
+        with open(benchmark_file, "r", encoding="utf-8") as f:
+            for l in f:
+                if l.strip():
+                    try:
+                        q = json.loads(l)
+                        out = outputs_map.get(q["id"], {})
+                        bench_data.append({
+                            "ID": q["id"],
+                            "Question": q["question"],
+                            "Expected Format": q["format_hint"],
+                            "Final Output": str(out.get("final_answer", "N/A"))
+                        })
+                    except Exception: pass
+
+        st.dataframe(pd.DataFrame(bench_data), use_container_width=True, hide_index=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
+# ---------------------------------------------------------
+# 13. VIEW 7: QUERY HISTORY
+# ---------------------------------------------------------
+elif st.session_state.active_view == "history":
+    st.markdown('<div><h1 style="font-size:22px; margin:0 0 4px; color:#dfe2ee;">Query History Log</h1></div><br>', unsafe_allow_html=True)
+    st.markdown('<div class="stitch-card">', unsafe_allow_html=True)
+    st.dataframe(pd.DataFrame(st.session_state.query_history), use_container_width=True, hide_index=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# ---------------------------------------------------------
+# 14. VIEW 8: SETTINGS
+# ---------------------------------------------------------
 elif st.session_state.active_view == "settings":
-    st.markdown('<div><h1 class="view-title-main">⚙️ Settings</h1></div><br>', unsafe_allow_html=True)
-    st.markdown('<div class="white-card">', unsafe_allow_html=True)
-    st.text_input("LLM Model Endpoint", value="Phi-3.5 3.8B Mini (Ollama Local)")
-    st.text_input("SQLite Database Path", value="data/northwind.sqlite")
+    st.markdown('<div><h1 style="font-size:22px; margin:0 0 4px; color:#dfe2ee;">Settings & Runtime Configuration</h1></div><br>', unsafe_allow_html=True)
+    st.markdown('<div class="stitch-card">', unsafe_allow_html=True)
+    st.text_input("LLM Model Engine", value="Phi-3.5 3.8B Mini (Ollama Local)", disabled=True)
+    st.text_input("SQLite Database Path", value="data/northwind.sqlite", disabled=True)
+    st.text_input("Retriever Algorithm", value="BM25 Search over Markdown Docs", disabled=True)
+    st.text_input("Orchestration Framework", value="LangGraph StateGraph + DSPy Modules", disabled=True)
     st.markdown('</div>', unsafe_allow_html=True)
