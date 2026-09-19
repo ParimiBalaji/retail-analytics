@@ -16,7 +16,10 @@ import json
 
 # --- 0. Configuration & Setup ---
 lm = get_dspy_lm()
-dspy.configure(lm=lm)
+try:
+    dspy.configure(lm=lm)
+except Exception as _e:
+    pass
 
 # Initialize Tools
 retriever = LocalRetriever()
@@ -61,7 +64,8 @@ def router_node(state: AgentState):
     """Decides if we need RAG, SQL, or Both."""
     print(f"--- ROUTER: Analyzing '{state['question']}' ---")
     try:
-        pred = router_module(question=state['question'])
+        with dspy.context(lm=lm):
+            pred = router_module(question=state['question'])
         decision = pred.classification.lower().strip()
     except Exception as e:
         print(f"[WARNING] Router Error: {e}. Using rule-based fallback.")
@@ -114,7 +118,8 @@ def sql_generation_node(state: AgentState):
 
     try:
         # Attempt 1: Try the Optimized Module
-        pred = sql_generator(question=combined_input, db_schema=schema_context)
+        with dspy.context(lm=lm):
+            pred = sql_generator(question=combined_input, db_schema=schema_context)
         clean_sql = pred.sql_query.replace("```sql", "").replace("```", "").strip()
         print("   [OK] Generated via Optimized Module")
         
@@ -125,7 +130,8 @@ def sql_generation_node(state: AgentState):
         try:
             print("   [FALLBACK] Attempting Fallback (Vanilla DSPy)...")
             fallback_gen = dspy.Predict(TextToSQL)
-            pred = fallback_gen(question=combined_input, db_schema=schema_context)
+            with dspy.context(lm=lm):
+                pred = fallback_gen(question=combined_input, db_schema=schema_context)
             clean_sql = pred.sql_query.replace("```sql", "").replace("```", "").strip()
             print("   [OK] Generated via Fallback")
         except Exception as e2:
@@ -185,13 +191,14 @@ def synthesizer_node(state: AgentState):
 
     # Call DSPy synthesizer
     try:
-        pred = synthesizer(
-            question=state['question'],
-            context=doc_context,
-            sql_query=sql_ctx,
-            sql_result=res_ctx,
-            format_hint=format_hint
-        )
+        with dspy.context(lm=lm):
+            pred = synthesizer(
+                question=state['question'],
+                context=doc_context,
+                sql_query=sql_ctx,
+                sql_result=res_ctx,
+                format_hint=format_hint
+            )
     except Exception as e:
         print(f"   Warning: Synthesizer error: {e}")
         pred = type('obj', (object,), {

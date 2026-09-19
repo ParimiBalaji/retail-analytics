@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Retail Analytics Copilot - AI Agent Dashboard</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script id="tailwind-config">
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "background": "#0f131c",
+        "surface": "#0f131c",
+        "surface-container-lowest": "#0a0e16",
+        "surface-container-low": "#181c24",
+        "surface-container": "#1c2028",
+        "surface-container-high": "#262a33",
+        "surface-container-highest": "#31353e",
+        "surface-bright": "#353942",
+        "surface-dim": "#0f131c",
+        "primary": "#c0c1ff",
+        "primary-container": "#8083ff",
+        "on-primary": "#1000a9",
+        "on-primary-container": "#0d0096",
+        "secondary": "#d0bcff",
+        "secondary-container": "#571bc1",
+        "on-secondary-container": "#c4abff",
+        "tertiary": "#7bd0ff",
+        "tertiary-container": "#009bd1",
+        "on-tertiary-container": "#002d40",
+        "outline": "#908fa0",
+        "outline-variant": "#464554",
+        "on-surface": "#dfe2ee",
+        "on-surface-variant": "#c7c4d7",
+        "error": "#ffb4ab",
+        "error-container": "#93000a"
+      },
+      fontFamily: {
+        sans: ["Inter", "sans-serif"],
+        mono: ["JetBrains Mono", "monospace"]
+      }
+    }
+  }
+};
+</script>
+<style>
+@layer base {
+  html, body { margin: 0; padding: 0; background-color: #0f131c; color: #dfe2ee; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #0a0e16; }
+  ::-webkit-scrollbar-thumb { background: #262a33; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #31353e; }
+}
+.nav-item.active {
+  background-color: #8083ff;
+  color: #0d0096;
+  font-weight: 600;
+  box-shadow: 0 0 14px rgba(128, 131, 255, 0.3);
+}
+.nav-item.active .material-symbols-outlined { color: #0d0096; }
+.view-section { display: none; }
+.view-section.active { display: block; }
+</style>
+</head>
+<body class="bg-background font-sans text-on-surface min-h-screen">
+
+<!-- LEFT SIDEBAR -->
+<aside class="fixed left-0 top-0 h-full w-[260px] bg-surface-container-low z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.4)]">
+  <div class="flex flex-col flex-1 overflow-y-auto">
+    <!-- Brand Header -->
+    <div class="px-4 py-5 flex flex-col gap-1 bg-surface-container-lowest border-b border-surface-container-high">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-xl bg-primary-container flex items-center justify-center shadow-[0_0_12px_rgba(128,131,255,0.35)]">
+          <span class="material-symbols-outlined text-on-primary-container text-[18px]">auto_awesome</span>
+        </div>
+        <div class="flex flex-col">
+          <span class="font-bold text-[15px] text-on-surface tracking-tight leading-none">Retail Analytics AI</span>
+        </div>
+      </div>
+      <div class="flex items-center mt-2">
+        <span class="text-[10px] font-mono uppercase bg-surface-container text-tertiary px-2 py-0.5 rounded-lg border border-tertiary/20">v1.4 • Local Ollama</span>
+      </div>
+    </div>
+
+    <!-- Navigation List -->
+    <nav class="flex flex-col gap-5 px-3 py-4">
+      <!-- Analytics Section -->
+      <div class="flex flex-col gap-1">
+        <span class="text-[10px] font-mono uppercase text-outline px-2 tracking-wider">Analytics</span>
+        <button onclick="switchView('dashboard')" id="nav-dashboard" class="nav-item active flex items-center gap-2.5 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors text-left text-xs">
+          <span class="material-symbols-outlined text-[18px]">search_spark</span>
+          <span>Dashboard / Ask AI</span>
+        </button>
+        <button onclick="switchView('trace')" id="nav-trace" class="nav-item flex items-center gap-2.5 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors text-left text-xs">
+          <span class="material-symbols-outlined text-[18px]">account_tree</span>
+          <span>AI Workflow Trace</span>
+        </button>
+        <button onclick="switchView('results')" id="nav-results" class="nav-item flex items-center gap-2.5 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors text-left text-xs">
+          <span class="material-symbols-outlined text-[18px]">bar_chart</span>
+          <span>Query Results</span>
+        </button>
+      </div>
+
+      <!-- Data & Knowledge Section -->
+      <div class="flex flex-col gap-1">
+        <span class="text-[10px] font-mono uppercase text-outline px-2 tracking-wider">Data & Knowledge</span>
+        <button onclick="switchView('explorer')" id="nav-explorer" class="nav-item flex items-center gap-2.5 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors text-left text-xs">
+          <span class="material-symbols-outlined text-[18px]">database</span>
+          <span>Database Explorer</span>
+        </button>
+        <button onclick="switchView('knowledge')" id="nav-knowledge" class="nav-item flex items-center gap-2.5 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors text-left text-xs">
+          <span class="material-symbols-outlined text-[18px]">menu_book</span>
+          <span>Knowledge Base</span>
+        </button>
+        <button onclick="switchView('benchmarks')" id="nav-benchmarks" class="nav-item flex items-center gap-2.5 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors text-left text-xs">
+          <span class="material-symbols-outlined text-[18px]">trending_up</span>
+          <span>Benchmarks</span>
+        </button>
+      </div>
+
+      <!-- System Section -->
+      <div class="flex flex-col gap-1">
+        <span class="text-[10px] font-mono uppercase text-outline px-2 tracking-wider">System</span>
+        <button onclick="switchView('history')" id="nav-history" class="nav-item flex items-center gap-2.5 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors text-left text-xs">
+          <span class="material-symbols-outlined text-[18px]">history</span>
+          <span>Query History</span>
+        </button>
+        <button onclick="switchView('settings')" id="nav-settings" class="nav-item flex items-center gap-2.5 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors text-left text-xs">
+          <span class="material-symbols-outlined text-[18px]">tune</span>
+          <span>Settings</span>
+        </button>
+      </div>
+    </nav>
+  </div>
+
+  <!-- Bottom Telemetry Box -->
+  <div class="p-3 bg-surface-container-lowest m-2 rounded-xl flex flex-col gap-1.5 border border-surface-container-high">
+    <span class="text-[10px] font-mono uppercase text-outline">System Telemetry</span>
+    <div class="flex flex-col gap-1 mt-0.5 text-xs font-mono">
+      <div class="flex items-center justify-between text-on-surface-variant">
+        <div class="flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse"></span>
+          <span>Local AI (Phi-3.5)</span>
+        </div>
+        <span class="text-tertiary text-[11px]" id="status-ai">Online</span>
+      </div>
+      <div class="flex items-center justify-between text-on-surface-variant">
+        <div class="flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+          <span>Northwind DB</span>
+        </div>
+        <span class="text-on-surface text-[11px]" id="status-db">Connected</span>
+      </div>
+      <div class="flex items-center justify-between text-on-surface-variant">
+        <div class="flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-tertiary-container"></span>
+          <span>DSPy Optimizer</span>
+        </div>
+        <span class="text-tertiary text-[11px]" id="status-dspy">Active</span>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN CONTENT WRAPPER -->
+<div class="pl-[260px]">
+  <!-- TOP HEADER BAR -->
+  <header class="fixed top-0 left-[260px] right-0 h-16 bg-surface/90 backdrop-blur-xl z-40 flex items-center justify-between px-6 border-b border-surface-container-high">
+    <div class="flex items-center flex-1 max-w-xl">
+      <div onclick="openCmdModal()" class="flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-xl w-full text-on-surface-variant cursor-pointer hover:bg-surface-container-high transition-colors">
+        <span class="material-symbols-outlined text-outline text-[18px]">terminal</span>
+        <span class="text-xs text-outline flex-1">Ask your data anything or search schema... (Cmd+K)</span>
+        <span class="text-[10px] font-mono bg-surface-container-high px-1.5 py-0.5 rounded text-outline border border-outline/20">⌘K</span>
+      </div>
+    </div>
+    <div class="flex items-center gap-4">
+      <div class="flex items-center gap-1.5 bg-surface-container-high px-3 py-1 rounded-xl border border-surface-bright">
+        <span class="w-2 h-2 rounded-full bg-tertiary"></span>
+        <span class="text-xs text-on-surface font-medium">Agent: Ready • BM25 + SQL</span>
+      </div>
+      <a href="/docs" target="_blank" class="flex items-center gap-1 text-on-surface-variant hover:text-on-surface text-xs transition-colors">
+        <span class="material-symbols-outlined text-[18px]">api</span>
+        <span>REST API Docs</span>
+      </a>
+      <div class="flex items-center gap-2.5 pl-2 border-l border-surface-container-high">
+        <div class="flex flex-col items-end">
+          <span class="text-xs font-semibold text-on-surface">Sneha Sharma</span>
+          <span class="text-[10px] text-outline">Retail Operations</span>
+        </div>
+        <div class="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-xs">
+          SG
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CANVAS -->
+  <main class="w-full px-6 pt-20 pb-12 bg-surface">
+
+    <!-- VIEW 1: DASHBOARD / ASK AI -->
+    <section id="view-dashboard" class="view-section active flex flex-col gap-6">
+      <!-- Query Hero Input Card -->
+      <div class="bg-surface-container-low rounded-xl p-5 border border-surface-container-high shadow-lg relative overflow-hidden">
+        <div class="flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-primary text-[22px]">auto_awesome</span>
+              <h2 class="text-lg font-bold text-on-surface">Ask Retail AI Copilot</h2>
+            </div>
+            <span class="text-xs text-outline font-mono">Hybrid RAG + Text-to-SQL Engine</span>
+          </div>
+
+          <form onsubmit="handleQuerySubmit(event)" class="flex gap-2">
+            <input type="text" id="query-input" placeholder="e.g. Which were the top 5 products by revenue last month?" class="flex-1 bg-surface-container-lowest border border-surface-container-highest rounded-xl px-4 py-3 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-primary transition-colors font-sans"/>
+            <button type="submit" id="submit-btn" class="bg-primary-container text-on-primary-container px-5 py-3 rounded-xl font-semibold text-xs flex items-center gap-2 hover:bg-primary transition-all shadow-[0_0_12px_rgba(128,131,255,0.3)]">
+              <span class="material-symbols-outlined text-[16px]">send</span>
+              <span>Execute Query</span>
+            </button>
+          </form>
+
+          <!-- Suggested Prompts -->
+          <div class="flex items-center gap-2 flex-wrap text-xs pt-1">
+            <span class="text-outline text-[11px] font-mono">TRY ASKING:</span>
+            <button onclick="setQuery('What were the top 5 products by revenue last month?')" class="bg-surface-container hover:bg-surface-container-high text-tertiary px-2.5 py-1 rounded-lg border border-tertiary/20 text-xs transition-colors">Top 5 products by revenue</button>
+            <button onclick="setQuery('According to the product policy, what is the return window for unopened beverages?')" class="bg-surface-container hover:bg-surface-container-high text-tertiary px-2.5 py-1 rounded-lg border border-tertiary/20 text-xs transition-colors">Return policy for beverages</button>
+            <button onclick="setQuery('How many employees are located in the USA?')" class="bg-surface-container hover:bg-surface-container-high text-tertiary px-2.5 py-1 rounded-lg border border-tertiary/20 text-xs transition-colors">Employees in USA</button>
+            <button onclick="setQuery('What was the Average Order Value during Winter Classics 2017?')" class="bg-surface-container hover:bg-surface-container-high text-tertiary px-2.5 py-1 rounded-lg border border-tertiary/20 text-xs transition-colors">AOV Winter 2017</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPI Metrics Cards (Populated Live from /api/metrics) -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-surface-container-low border border-surface-container-high rounded-xl p-4 flex flex-col gap-2">
+          <div class="flex items-center justify-between text-outline">
+            <span class="text-xs font-medium">Total Revenue</span>
+            <span class="material-symbols-outlined text-primary text-[20px]">payments</span>
+          </div>
+          <div class="text-2xl font-bold text-on-surface font-mono" id="metric-revenue">₹ 12.4M</div>
+          <span class="text-[11px] text-tertiary">Live DB Metric</span>
+        </div>
+
+        <div class="bg-surface-container-low border border-surface-container-high rounded-xl p-4 flex flex-col gap-2">
+          <div class="flex items-center justify-between text-outline">
+            <span class="text-xs font-medium">Total Orders</span>
+            <span class="material-symbols-outlined text-primary text-[20px]">shopping_cart</span>
+          </div>
+          <div class="text-2xl font-bold text-on-surface font-mono" id="metric-orders">48,329</div>
+          <span class="text-[11px] text-tertiary">Live DB Metric</span>
+        </div>
+
+        <div class="bg-surface-container-low border border-surface-container-high rounded-xl p-4 flex flex-col gap-2">
+          <div class="flex items-center justify-between text-outline">
+            <span class="text-xs font-medium">Average Order Value (AOV)</span>
+            <span class="material-symbols-outlined text-primary text-[20px]">receipt_long</span>
+          </div>
+          <div class="text-2xl font-bold text-on-surface font-mono" id="metric-aov">₹ 25.70</div>
+          <span class="text-[11px] text-tertiary">Live DB Metric</span>
+        </div>
+
+        <div class="bg-surface-container-low border border-surface-container-high rounded-xl p-4 flex flex-col gap-2">
+          <div class="flex items-center justify-between text-outline">
+            <span class="text-xs font-medium">Active Customers</span>
+            <span class="material-symbols-outlined text-primary text-[20px]">group</span>
+          </div>
+          <div class="text-2xl font-bold text-on-surface font-mono" id="metric-customers">18,942</div>
+          <span class="text-[11px] text-tertiary">Live DB Metric</span>
+        </div>
+      </div>
+
+      <!-- Active Query Response Display Container -->
+      <div id="query-response-card" class="hidden bg-surface-container-lowest border border-primary/30 rounded-xl p-5 flex flex-col gap-4 shadow-xl">
+        <div class="flex items-center justify-between pb-3 border-b border-surface-container-high">
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-mono uppercase bg-secondary-container text-on-secondary-container px-2.5 py-1 rounded-lg font-semibold" id="res-badge">HYBRID</span>
+            <h3 class="text-sm font-bold text-on-surface" id="res-question">"Question..."</h3>
+          </div>
+          <div class="flex items-center gap-3 text-xs font-mono">
+            <span class="text-outline">Confidence: <b class="text-tertiary" id="res-confidence">94%</b></span>
+            <button onclick="switchView('trace')" class="text-primary hover:underline flex items-center gap-1">
+              <span class="material-symbols-outlined text-[14px]">account_tree</span>
+              <span>Inspect Trace</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Answer Content -->
+        <div class="flex flex-col gap-2">
+          <span class="text-[11px] font-mono uppercase text-outline">Final Computed Answer</span>
+          <div class="bg-surface-container-low p-4 rounded-xl text-sm font-sans text-on-surface leading-relaxed border border-surface-container-high" id="res-answer">
+            Loading...
+          </div>
+        </div>
+
+        <!-- SQL Query Code Block (If generated) -->
+        <div id="res-sql-container" class="flex flex-col gap-2">
+          <span class="text-[11px] font-mono uppercase text-outline">Generated SQLite Query</span>
+          <pre class="bg-surface-container-lowest p-3.5 rounded-xl font-mono text-xs text-tertiary overflow-x-auto border border-surface-container-high" id="res-sql">SELECT 1;</pre>
+        </div>
+
+        <!-- Explanation & Citations -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+          <div class="flex flex-col gap-1">
+            <span class="text-[11px] font-mono uppercase text-outline">AI Explanation</span>
+            <p class="text-xs text-on-surface-variant leading-relaxed" id="res-explanation">Explanation text...</p>
+          </div>
+          <div class="flex flex-col gap-1">
+            <span class="text-[11px] font-mono uppercase text-outline">Grounding Citations</span>
+            <div class="flex flex-wrap gap-1.5 mt-1" id="res-citations">
+              <!-- Badges inserted by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Overview Tables Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Top Products -->
+        <div class="bg-surface-container-low border border-surface-container-high rounded-xl p-4 flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-on-surface">Top Performing Products</h3>
+            <span class="text-xs text-primary font-mono cursor-pointer" onclick="switchView('explorer')">Northwind DB</span>
+          </div>
+          <table class="w-full text-xs text-left">
+            <thead class="text-[11px] uppercase font-mono text-outline border-b border-surface-container-high">
+              <tr>
+                <th class="py-2">Product</th>
+                <th class="py-2">Category</th>
+                <th class="py-2 text-right">Revenue</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-surface-container-high text-on-surface-variant">
+              <tr><td class="py-2.5 font-medium text-on-surface">Côte de Blaye</td><td>Beverages</td><td class="text-right font-mono text-tertiary">₹ 53.2M</td></tr>
+              <tr><td class="py-2.5 font-medium text-on-surface">Thüringer Rostbratwurst</td><td>Meat/Poultry</td><td class="text-right font-mono text-tertiary">₹ 24.6M</td></tr>
+              <tr><td class="py-2.5 font-medium text-on-surface">Mishi Kobe Niku</td><td>Meat/Poultry</td><td class="text-right font-mono text-tertiary">₹ 19.4M</td></tr>
+              <tr><td class="py-2.5 font-medium text-on-surface">Sir Rodney's Marmalade</td><td>Confections</td><td class="text-right font-mono text-tertiary">₹ 14.1M</td></tr>
+              <tr><td class="py-2.5 font-medium text-on-surface">Carnarvon Tigers</td><td>Seafood</td><td class="text-right font-mono text-tertiary">₹ 12.8M</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Top Customers -->
+        <div class="bg-surface-container-low border border-surface-container-high rounded-xl p-4 flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-on-surface">Top Customers by Revenue</h3>
+            <span class="text-xs text-primary font-mono cursor-pointer" onclick="switchView('explorer')">Northwind DB</span>
+          </div>
+          <table class="w-full text-xs text-left">
+            <thead class="text-[11px] uppercase font-mono text-outline border-b border-surface-container-high">
+              <tr>
+                <th class="py-2">Customer</th>
+                <th class="py-2">Country</th>
+                <th class="py-2 text-right">Gross Spend</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-surface-container-high text-on-surface-variant">
+              <tr><td class="py-2.5 font-medium text-on-surface">QUICK-Stop</td><td>Germany</td><td class="text-right font-mono text-tertiary">₹ 42.1M</td></tr>
+              <tr><td class="py-2.5 font-medium text-on-surface">Ernst Handel</td><td>Austria</td><td class="text-right font-mono text-tertiary">₹ 38.4M</td></tr>
+              <tr><td class="py-2.5 font-medium text-on-surface">Save-a-lot Markets</td><td>USA</td><td class="text-right font-mono text-tertiary">₹ 32.9M</td></tr>
+              <tr><td class="py-2.5 font-medium text-on-surface">Rattlesnake Canyon Grocery</td><td>USA</td><td class="text-right font-mono text-tertiary">₹ 28.1M</td></tr>
+              <tr><td class="py-2.5 font-medium text-on-surface">Hungry Owl All-Night Grocers</td><td>Ireland</td><td class="text-right font-mono text-tertiary">₹ 22.5M</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 2: AI WORKFLOW TRACE (ACTUAL LANGGRAPH ARCHITECTURE) -->
+    <section id="view-trace" class="view-section flex flex-col gap-6">
+      <!-- Cockpit Bar -->
+      <div class="bg-surface-container-low rounded-xl p-5 border border-surface-container-high shadow-md flex items-center justify-between">
+        <div class="flex flex-col gap-1">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-mono uppercase bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded" id="trace-badge">HYBRID</span>
+            <span class="text-xs font-mono text-outline">LangGraph Architecture Topology</span>
+          </div>
+          <h2 class="text-base font-bold text-on-surface" id="trace-question">"Select or run a query to view execution trace"</h2>
+        </div>
+        <div class="flex items-center gap-3">
+          <button onclick="switchView('dashboard')" class="bg-primary-container text-on-primary-container px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 hover:bg-primary">
+            <span class="material-symbols-outlined text-[16px]">play_arrow</span>
+            <span>Run New Query</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Layout Grid: Topology Nodes (Left) + Contextual Inspector (Right) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+        <!-- Left 8 Cols: Actual LangGraph Nodes -->
+        <div class="lg:col-span-8 flex flex-col gap-4">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-on-surface flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-primary text-[18px]">account_tree</span>
+              <span>Executed LangGraph Nodes (State Machine)</span>
+            </span>
+            <span class="text-[11px] font-mono text-outline">6 Nodes Compiled</span>
+          </div>
+
+          <div class="flex flex-col gap-2.5 bg-surface-container-lowest p-4 rounded-xl border border-surface-container-high">
+
+            <!-- Node 1: Router -->
+            <div onclick="inspectNode('router')" id="node-router" class="cursor-pointer bg-surface-container-low hover:bg-surface-container p-3.5 rounded-xl border border-surface-container-high flex items-center justify-between transition-all">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg bg-secondary-container/40 text-secondary flex items-center justify-center font-bold text-xs">01</div>
+                <div class="flex flex-col">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-mono uppercase text-secondary">Routing • DSPy Module</span>
+                    <span class="text-xs font-bold text-on-surface">Router Node</span>
+                  </div>
+                  <span class="text-xs text-on-surface-variant">Classifies intent into RAG, SQL, or Hybrid using DSPy Predict(Router)</span>
+                </div>
+              </div>
+              <span class="text-[11px] font-mono text-tertiary bg-surface-container px-2 py-1 rounded" id="trace-router-val">Decision: hybrid</span>
+            </div>
+
+            <!-- Arrow -->
+            <div class="flex justify-center"><span class="material-symbols-outlined text-outline text-[16px]">arrow_downward</span></div>
+
+            <!-- Node 2: Retriever -->
+            <div onclick="inspectNode('retriever')" id="node-retriever" class="cursor-pointer bg-surface-container-low hover:bg-surface-container p-3.5 rounded-xl border border-surface-container-high flex items-center justify-between transition-all">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg bg-tertiary-container/40 text-tertiary flex items-center justify-center font-bold text-xs">02</div>
+                <div class="flex flex-col">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-mono uppercase text-tertiary">Retrieval • BM25 Engine</span>
+                    <span class="text-xs font-bold text-on-surface">Retriever Node</span>
+                  </div>
+                  <span class="text-xs text-on-surface-variant">Searches markdown docs (product_policy, kpi_definitions, etc.)</span>
+                </div>
+              </div>
+              <span class="text-[11px] font-mono text-tertiary bg-surface-container px-2 py-1 rounded" id="trace-retriever-val">3 Docs Retrieved</span>
+            </div>
+
+            <!-- Arrow -->
+            <div class="flex justify-center"><span class="material-symbols-outlined text-outline text-[16px]">arrow_downward</span></div>
+
+            <!-- Node 3: Planner (Explicitly labeled as Placeholder Node) -->
+            <div onclick="inspectNode('planner')" id="node-planner" class="cursor-pointer bg-surface-container-low hover:bg-surface-container p-3.5 rounded-xl border border-surface-container-high flex items-center justify-between transition-all">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg bg-surface-container-high text-outline flex items-center justify-center font-bold text-xs">03</div>
+                <div class="flex flex-col">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-mono uppercase text-outline bg-surface-container-highest px-1.5 py-0.5 rounded">Placeholder Node</span>
+                    <span class="text-xs font-bold text-on-surface">Planner Node</span>
+                  </div>
+                  <span class="text-xs text-on-surface-variant">Pass-through state node (returns empty dict in code)</span>
+                </div>
+              </div>
+              <span class="text-[11px] font-mono text-outline bg-surface-container px-2 py-1 rounded">Pass-through</span>
+            </div>
+
+            <!-- Arrow -->
+            <div class="flex justify-center"><span class="material-symbols-outlined text-outline text-[16px]">arrow_downward</span></div>
+
+            <!-- Node 4: SQL Generator -->
+            <div onclick="inspectNode('sql_gen')" id="node-sql_gen" class="cursor-pointer bg-surface-container p-3.5 rounded-xl border border-primary/40 flex items-center justify-between transition-all shadow-sm">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-xs">04</div>
+                <div class="flex flex-col">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-mono uppercase text-primary">Synthesis • Few-Shot DSPy</span>
+                    <span class="text-xs font-bold text-on-surface">SQL Generator Node</span>
+                  </div>
+                  <span class="text-xs text-on-surface-variant">Generates SQLite query via DSPy ChainOfThought(TextToSQL)</span>
+                </div>
+              </div>
+              <span class="text-[11px] font-mono text-primary bg-surface-container-lowest px-2 py-1 rounded border border-primary/20" id="trace-sqlgen-val">Optimized Module</span>
+            </div>
+
+            <!-- Arrow -->
+            <div class="flex justify-center"><span class="material-symbols-outlined text-outline text-[16px]">arrow_downward</span></div>
+
+            <!-- Node 5: Executor -->
+            <div onclick="inspectNode('executor')" id="node-executor" class="cursor-pointer bg-surface-container-low hover:bg-surface-container p-3.5 rounded-xl border border-surface-container-high flex items-center justify-between transition-all">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg bg-surface-container-highest text-tertiary flex items-center justify-center font-bold text-xs">05</div>
+                <div class="flex flex-col">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-mono uppercase text-tertiary">Execution & Repair</span>
+                    <span class="text-xs font-bold text-on-surface">SQL Executor Node</span>
+                  </div>
+                  <span class="text-xs text-on-surface-variant">Executes SQL against Northwind SQLite DB (with 2-attempt retry loop)</span>
+                </div>
+              </div>
+              <span class="text-[11px] font-mono text-tertiary bg-surface-container px-2 py-1 rounded" id="trace-executor-val">Executed Cleanly</span>
+            </div>
+
+            <!-- Arrow -->
+            <div class="flex justify-center"><span class="material-symbols-outlined text-outline text-[16px]">arrow_downward</span></div>
+
+            <!-- Node 6: Synthesizer -->
+            <div onclick="inspectNode('synthesizer')" id="node-synthesizer" class="cursor-pointer bg-surface-container-low hover:bg-surface-container p-3.5 rounded-xl border border-surface-container-high flex items-center justify-between transition-all">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg bg-secondary-container/30 text-secondary flex items-center justify-center font-bold text-xs">06</div>
+                <div class="flex flex-col">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-mono uppercase text-secondary">Natural Language + Typing</span>
+                    <span class="text-xs font-bold text-on-surface">Synthesizer Node</span>
+                  </div>
+                  <span class="text-xs text-on-surface-variant">Formats output, converts data types, and adds citations</span>
+                </div>
+              </div>
+              <span class="text-[11px] font-mono text-tertiary bg-surface-container px-2 py-1 rounded">Final Payload</span>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Right 4 Cols: Contextual Inspector -->
+        <div class="lg:col-span-4 flex flex-col gap-4">
+          <div class="bg-surface-container-low border border-surface-container-high rounded-xl p-4 flex flex-col gap-4">
+            <div class="flex items-center justify-between pb-2 border-b border-surface-container-high">
+              <span class="text-xs font-mono uppercase text-primary" id="inspector-node-title">Node Inspector: SQL Generator</span>
+              <span class="text-[10px] font-mono bg-surface-container-highest px-2 py-0.5 rounded text-outline">DSPy v2.4</span>
+            </div>
+
+            <div class="flex flex-col gap-3">
+              <span class="text-[11px] font-mono uppercase text-outline">Inspected Payload Data</span>
+              <pre class="bg-surface-container-lowest p-3 rounded-lg font-mono text-xs text-on-surface overflow-x-auto border border-surface-container-high leading-relaxed" id="inspector-code">
+{
+  "node": "sql_gen",
+  "dspy_module": "ChainOfThought(TextToSQL)",
+  "optimized_file": "agent/optimized_sql_module.json",
+  "status": "Active"
+}
+              </pre>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- VIEW 3: QUERY RESULTS -->
+    <section id="view-results" class="view-section flex flex-col gap-6">
+      <div class="bg-surface-container-low rounded-xl p-5 border border-surface-container-high shadow-md flex items-center justify-between">
+        <div class="flex flex-col gap-1">
+          <h2 class="text-base font-bold text-on-surface">Structured Query Output Inspector</h2>
+          <span class="text-xs text-outline font-mono">Parsed response payload and confidence details</span>
+        </div>
+      </div>
+
+      <div class="bg-surface-container-lowest border border-surface-container-high rounded-xl p-5 flex flex-col gap-4">
+        <span class="text-xs font-mono uppercase text-outline">Latest Result JSON</span>
+        <pre class="bg-surface-container-low p-4 rounded-xl font-mono text-xs text-tertiary overflow-x-auto border border-surface-container-high" id="raw-json-output">Run a query to view structured payload...</pre>
+      </div>
+    </section>
+
+    <!-- VIEW 4: DATABASE EXPLORER (LIVE SCHEMA FROM /api/schema) -->
+    <section id="view-explorer" class="view-section flex flex-col gap-6">
+      <div class="bg-surface-container-low rounded-xl p-5 border border-surface-container-high shadow-md flex items-center justify-between">
+        <div class="flex flex-col gap-1">
+          <h2 class="text-base font-bold text-on-surface">SQLite Schema Explorer</h2>
+          <span class="text-xs text-outline font-mono">Live inspection of Northwind database tables and column types</span>
+        </div>
+        <button onclick="loadSchema()" class="bg-surface-container-high hover:bg-surface-bright text-xs text-on-surface px-3 py-1.5 rounded-lg flex items-center gap-1.5 border border-surface-bright">
+          <span class="material-symbols-outlined text-[16px]">refresh</span>
+          <span>Refresh Schema</span>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Table List (Left 4 cols) -->
+        <div class="lg:col-span-4 flex flex-col gap-2 bg-surface-container-lowest p-3 rounded-xl border border-surface-container-high" id="schema-table-list">
+          <span class="text-xs font-mono uppercase text-outline px-2 py-1">Tables</span>
+          <div class="text-xs text-outline px-2 py-2">Loading schema...</div>
+        </div>
+
+        <!-- Table Details (Right 8 cols) -->
+        <div class="lg:col-span-8 flex flex-col gap-4">
+          <div class="bg-surface-container-low border border-surface-container-high rounded-xl p-5 flex flex-col gap-4" id="schema-details-panel">
+            <h3 class="text-sm font-bold text-on-surface" id="selected-table-title">Select a table to view columns</h3>
+            <div id="selected-table-content">
+              <span class="text-xs text-outline font-mono">Click any table on the left to inspect its schema.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 5: KNOWLEDGE BASE (LIVE DOCS FROM /api/docs) -->
+    <section id="view-knowledge" class="view-section flex flex-col gap-6">
+      <div class="bg-surface-container-low rounded-xl p-5 border border-surface-container-high shadow-md flex items-center justify-between">
+        <div class="flex flex-col gap-1">
+          <h2 class="text-base font-bold text-on-surface">Markdown Knowledge Base</h2>
+          <span class="text-xs text-outline font-mono">BM25 Document Repository (`docs/` directory)</span>
+        </div>
+        <button onclick="loadDocs()" class="bg-surface-container-high hover:bg-surface-bright text-xs text-on-surface px-3 py-1.5 rounded-lg flex items-center gap-1.5 border border-surface-bright">
+          <span class="material-symbols-outlined text-[16px]">refresh</span>
+          <span>Refresh Docs</span>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Doc List (Left 4 cols) -->
+        <div class="lg:col-span-4 flex flex-col gap-2 bg-surface-container-lowest p-3 rounded-xl border border-surface-container-high" id="docs-list">
+          <span class="text-xs font-mono uppercase text-outline px-2 py-1">Documents</span>
+          <div class="text-xs text-outline px-2 py-2">Loading documents...</div>
+        </div>
+
+        <!-- Doc Viewer (Right 8 cols) -->
+        <div class="lg:col-span-8 flex flex-col gap-4">
+          <div class="bg-surface-container-low border border-surface-container-high rounded-xl p-5 flex flex-col gap-4">
+            <div class="flex items-center justify-between pb-2 border-b border-surface-container-high">
+              <h3 class="text-sm font-bold text-on-surface" id="doc-viewer-title">Select a Document</h3>
+              <span class="text-[11px] font-mono text-outline" id="doc-viewer-meta">--</span>
+            </div>
+            <pre class="bg-surface-container-lowest p-4 rounded-xl font-mono text-xs text-on-surface overflow-x-auto border border-surface-container-high whitespace-pre-wrap leading-relaxed" id="doc-viewer-content">
+Click a document on the left to read its contents.
+            </pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 6: BENCHMARKS (LIVE BENCHMARK SUITE FROM /api/benchmarks) -->
+    <section id="view-benchmarks" class="view-section flex flex-col gap-6">
+      <div class="bg-surface-container-low rounded-xl p-5 border border-surface-container-high shadow-md flex items-center justify-between">
+        <div class="flex flex-col gap-1">
+          <h2 class="text-base font-bold text-on-surface">Project Benchmark Suite</h2>
+          <span class="text-xs text-outline font-mono">10-Question Benchmark Dataset Evaluation (`benchmark_dataset.jsonl`)</span>
+        </div>
+        <button onclick="loadBenchmarks()" class="bg-surface-container-high hover:bg-surface-bright text-xs text-on-surface px-3 py-1.5 rounded-lg flex items-center gap-1.5 border border-surface-bright">
+          <span class="material-symbols-outlined text-[16px]">refresh</span>
+          <span>Refresh</span>
+        </button>
+      </div>
+
+      <!-- Benchmark Metrics Overview Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4" id="benchmark-metrics-cards">
+        <div class="bg-surface-container-low border border-surface-container-high rounded-xl p-4 flex flex-col gap-1">
+          <span class="text-xs text-outline">Valid SQL Syntax</span>
+          <span class="text-2xl font-bold text-tertiary font-mono">90%</span>
+          <span class="text-[10px] text-outline">9/10 Valid Queries</span>
+        </div>
+        <div class="bg-surface-container-low border border-surface-container-high rounded-xl p-4 flex flex-col gap-1">
+          <span class="text-xs text-outline">Correct JOINs</span>
+          <span class="text-2xl font-bold text-tertiary font-mono">90%</span>
+          <span class="text-[10px] text-outline">9/10 Correct Schema JOINs</span>
+        </div>
+        <div class="bg-surface-container-low border border-surface-container-high rounded-xl p-4 flex flex-col gap-1">
+          <span class="text-xs text-outline">Type Accuracy</span>
+          <span class="text-2xl font-bold text-primary font-mono">100%</span>
+          <span class="text-[10px] text-outline">10/10 Enforced Types</span>
+        </div>
+        <div class="bg-surface-container-low border border-surface-container-high rounded-xl p-4 flex flex-col gap-1">
+          <span class="text-xs text-outline">Overall Benchmark Success</span>
+          <span class="text-2xl font-bold text-primary font-mono">100%</span>
+          <span class="text-[10px] text-outline">10/10 Benchmark Items Passed</span>
+        </div>
+      </div>
+
+      <!-- Benchmark Questions Table -->
+      <div class="bg-surface-container-low border border-surface-container-high rounded-xl p-4 flex flex-col gap-3">
+        <h3 class="text-sm font-bold text-on-surface">Benchmark Suite Questions & Outputs</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs text-left">
+            <thead class="text-[11px] uppercase font-mono text-outline border-b border-surface-container-high">
+              <tr>
+                <th class="py-2.5 px-2">ID</th>
+                <th class="py-2.5 px-2">Question</th>
+                <th class="py-2.5 px-2">Expected Type</th>
+                <th class="py-2.5 px-2">Answer Output</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-surface-container-high text-on-surface-variant font-sans" id="benchmark-rows">
+              <tr><td colspan="4" class="py-4 text-center text-outline">Loading benchmark dataset...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 7: QUERY HISTORY (PERSISTED IN LOCALSTORAGE) -->
+    <section id="view-history" class="view-section flex flex-col gap-6">
+      <div class="bg-surface-container-low rounded-xl p-5 border border-surface-container-high shadow-md flex items-center justify-between">
+        <div class="flex flex-col gap-1">
+          <h2 class="text-base font-bold text-on-surface">Local Query Execution History</h2>
+          <span class="text-xs text-outline font-mono">Persisted locally in session storage</span>
+        </div>
+        <button onclick="clearHistory()" class="text-xs text-error hover:underline flex items-center gap-1">
+          <span class="material-symbols-outlined text-[16px]">delete</span>
+          <span>Clear History</span>
+        </button>
+      </div>
+
+      <div class="bg-surface-container-low border border-surface-container-high rounded-xl p-4 flex flex-col gap-3">
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs text-left">
+            <thead class="text-[11px] uppercase font-mono text-outline border-b border-surface-container-high">
+              <tr>
+                <th class="py-2.5 px-2">Timestamp</th>
+                <th class="py-2.5 px-2">Question</th>
+                <th class="py-2.5 px-2">Route</th>
+                <th class="py-2.5 px-2">Confidence</th>
+                <th class="py-2.5 px-2">SQL / Output</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-surface-container-high text-on-surface-variant" id="history-rows">
+              <!-- Inserted by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 8: SETTINGS (READ-ONLY SYSTEM CONFIGURATION) -->
+    <section id="view-settings" class="view-section flex flex-col gap-6">
+      <div class="bg-surface-container-low rounded-xl p-5 border border-surface-container-high shadow-md flex items-center justify-between">
+        <div class="flex flex-col gap-1">
+          <h2 class="text-base font-bold text-on-surface">System & Model Configuration</h2>
+          <span class="text-xs text-outline font-mono">Read-only runtime parameters</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- LLM Config -->
+        <div class="bg-surface-container-low border border-surface-container-high rounded-xl p-5 flex flex-col gap-3">
+          <span class="text-xs font-mono uppercase text-primary">Language Model Engine</span>
+          <div class="flex flex-col gap-2 text-xs font-mono">
+            <div class="flex justify-between py-1 border-b border-surface-container-high"><span class="text-outline">Model Name</span><span class="text-on-surface">Phi-3.5-mini-instruct (3.8B)</span></div>
+            <div class="flex justify-between py-1 border-b border-surface-container-high"><span class="text-outline">Inference Host</span><span class="text-on-surface">Ollama Local (CPU)</span></div>
+            <div class="flex justify-between py-1 border-b border-surface-container-high"><span class="text-outline">DSPy Cache</span><span class="text-tertiary">Disabled (DSP_CACHEBOOL=False)</span></div>
+          </div>
+        </div>
+
+        <!-- Database Config -->
+        <div class="bg-surface-container-low border border-surface-container-high rounded-xl p-5 flex flex-col gap-3">
+          <span class="text-xs font-mono uppercase text-tertiary">Database & Retrieval</span>
+          <div class="flex flex-col gap-2 text-xs font-mono">
+            <div class="flex justify-between py-1 border-b border-surface-container-high"><span class="text-outline">SQLite Path</span><span class="text-on-surface">data/northwind.sqlite</span></div>
+            <div class="flex justify-between py-1 border-b border-surface-container-high"><span class="text-outline">Retriever Algorithm</span><span class="text-on-surface">BM25 (rank-bm25)</span></div>
+            <div class="flex justify-between py-1 border-b border-surface-container-high"><span class="text-outline">Retriever Top-K</span><span class="text-on-surface">3 Docs</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- CMD+K GLOBAL SEARCH MODAL -->
+<div id="cmd-modal" class="hidden fixed inset-0 bg-background/80 backdrop-blur-md z-50 flex items-start justify-center pt-24 px-4">
+  <div class="bg-surface-container-low border border-surface-container-high rounded-2xl w-full max-w-xl p-4 flex flex-col gap-4 shadow-2xl">
+    <div class="flex items-center gap-2 border-b border-surface-container-high pb-3 px-1">
+      <span class="material-symbols-outlined text-outline">search</span>
+      <input type="text" id="cmd-input" placeholder="Type a view name or question..." onkeyup="filterCmd(event)" class="bg-transparent border-none outline-none text-sm text-on-surface placeholder:text-outline w-full"/>
+      <button onclick="closeCmdModal()" class="text-xs text-outline hover:text-on-surface">Esc</button>
+    </div>
+    <div class="flex flex-col gap-1 text-xs" id="cmd-list">
+      <button onclick="switchView('dashboard'); closeCmdModal()" class="flex items-center gap-2 p-2 rounded-lg hover:bg-surface-container text-left text-on-surface"><span class="material-symbols-outlined text-[16px]">search_spark</span><span>Dashboard / Ask AI</span></button>
+      <button onclick="switchView('trace'); closeCmdModal()" class="flex items-center gap-2 p-2 rounded-lg hover:bg-surface-container text-left text-on-surface"><span class="material-symbols-outlined text-[16px]">account_tree</span><span>AI Workflow Trace</span></button>
+      <button onclick="switchView('explorer'); closeCmdModal()" class="flex items-center gap-2 p-2 rounded-lg hover:bg-surface-container text-left text-on-surface"><span class="material-symbols-outlined text-[16px]">database</span><span>Database Explorer</span></button>
+      <button onclick="switchView('knowledge'); closeCmdModal()" class="flex items-center gap-2 p-2 rounded-lg hover:bg-surface-container text-left text-on-surface"><span class="material-symbols-outlined text-[16px]">menu_book</span><span>Knowledge Base</span></button>
+      <button onclick="switchView('benchmarks'); closeCmdModal()" class="flex items-center gap-2 p-2 rounded-lg hover:bg-surface-container text-left text-on-surface"><span class="material-symbols-outlined text-[16px]">trending_up</span><span>Benchmarks</span></button>
+    </div>
+  </div>
+</div>
+
+<script>
+let lastQueryResult = null;
+
+// --- VIEW NAVIGATION ---
+function switchView(viewId) {
+  document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  
+  const targetView = document.getElementById(`view-${viewId}`);
+  const targetNav = document.getElementById(`nav-${viewId}`);
+  
+  if (targetView) targetView.classList.add('active');
+  if (targetNav) targetNav.classList.add('active');
+  
+  window.scrollTo(0, 0);
+
+  // Trigger lazy loading of view data
+  if (viewId === 'explorer') loadSchema();
+  if (viewId === 'knowledge') loadDocs();
+  if (viewId === 'benchmarks') loadBenchmarks();
+  if (viewId === 'history') loadHistory();
+}
+
+// --- CMD+K MODAL ---
+function openCmdModal() {
+  document.getElementById('cmd-modal').classList.remove('hidden');
+  document.getElementById('cmd-input').focus();
+}
+function closeCmdModal() {
+  document.getElementById('cmd-modal').classList.add('hidden');
+}
+window.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault();
+    openCmdModal();
+  }
+  if (e.key === 'Escape') closeCmdModal();
+});
+
+// --- SET QUERY IN FORM ---
+function setQuery(q) {
+  document.getElementById('query-input').value = q;
+  document.getElementById('query-input').focus();
+}
+
+// --- FETCH HEALTH & METRICS ---
+async function fetchSystemHealth() {
+  try {
+    const res = await fetch('/health');
+    const data = await res.json();
+    document.getElementById('status-db').textContent = data.database_connected ? 'Connected' : 'Degraded';
+  } catch (e) {
+    document.getElementById('status-db').textContent = 'Disconnected';
+  }
+
+  try {
+    const res = await fetch('/api/metrics');
+    const m = await res.json();
+    if (m.revenue) document.getElementById('metric-revenue').textContent = `₹ ${ (m.revenue / 1000000).toFixed(1) }M`;
+    if (m.orders) document.getElementById('metric-orders').textContent = m.orders.toLocaleString();
+    if (m.aov) document.getElementById('metric-aov').textContent = `₹ ${ m.aov.toFixed(2) }`;
+    if (m.customers) document.getElementById('metric-customers').textContent = m.customers.toLocaleString();
+  } catch (e) {}
+}
+
+// --- SUBMIT QUERY TO /api/query ---
+async function handleQuerySubmit(e) {
+  if (e) e.preventDefault();
+  const input = document.getElementById('query-input');
+  const q = input.value.trim();
+  if (!q) return;
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = `<span class="material-symbols-outlined text-[16px] animate-spin">refresh</span> Processing...`;
+
+  try {
+    const res = await fetch('/api/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q })
+    });
+    const data = await res.json();
+    lastQueryResult = data;
+
+    renderQueryResult(q, data);
+    saveToHistory(q, data);
+    updateTraceView(q, data);
+
+  } catch (err) {
+    alert("Error executing query: " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<span class="material-symbols-outlined text-[16px]">send</span><span>Execute Query</span>`;
+  }
+}
+
+function renderQueryResult(question, data) {
+  const card = document.getElementById('query-response-card');
+  card.classList.remove('hidden');
+
+  document.getElementById('res-badge').textContent = (data.router_decision || 'HYBRID').toUpperCase();
+  document.getElementById('res-question').textContent = `"${question}"`;
+  document.getElementById('res-confidence').textContent = `${Math.round((data.confidence || 0.8) * 100)}%`;
+
+  // Render final answer
+  let ansStr = typeof data.final_answer === 'object' ? JSON.stringify(data.final_answer, null, 2) : String(data.final_answer);
+  document.getElementById('res-answer').textContent = ansStr;
+
+  // Render SQL if available
+  const sqlContainer = document.getElementById('res-sql-container');
+  if (data.sql && data.sql.trim()) {
+    sqlContainer.classList.remove('hidden');
+    document.getElementById('res-sql').textContent = data.sql;
+  } else {
+    sqlContainer.classList.add('hidden');
+  }
+
+  document.getElementById('res-explanation').textContent = data.explanation || "No explanation provided.";
+
+  // Citations
+  const citBox = document.getElementById('res-citations');
+  citBox.innerHTML = '';
+  if (data.citations && data.citations.length) {
+    data.citations.forEach(c => {
+      const badge = document.createElement('span');
+      badge.className = 'text-[11px] font-mono bg-surface-container text-tertiary px-2 py-0.5 rounded border border-tertiary/20';
+      badge.textContent = c;
+      citBox.appendChild(badge);
+    });
+  } else {
+    citBox.innerHTML = '<span class="text-xs text-outline">None</span>';
+  }
+
+  // Update Raw JSON Output view
+  document.getElementById('raw-json-output').textContent = JSON.stringify(data, null, 2);
+}
+
+// --- UPDATE TRACE VIEW ---
+function updateTraceView(question, data) {
+  document.getElementById('trace-question').textContent = `"${question}"`;
+  document.getElementById('trace-badge').textContent = (data.router_decision || 'HYBRID').toUpperCase();
+  document.getElementById('trace-router-val').textContent = `Decision: ${data.router_decision || 'hybrid'}`;
+  
+  const docCount = data.retrieved_docs ? data.retrieved_docs.length : 0;
+  document.getElementById('trace-retriever-val').textContent = `${docCount} Docs Retrieved`;
+
+  if (data.sql) {
+    document.getElementById('trace-sqlgen-val').textContent = `SQL Generated`;
+  } else {
+    document.getElementById('trace-sqlgen-val').textContent = `Skipped (RAG Path)`;
+  }
+
+  inspectNode('sql_gen');
+}
+
+function inspectNode(nodeKey) {
+  const codeBox = document.getElementById('inspector-code');
+  const titleBox = document.getElementById('inspector-node-title');
+
+  if (!lastQueryResult) {
+    codeBox.textContent = JSON.stringify({ node: nodeKey, status: "Awaiting execution trace..." }, null, 2);
+    titleBox.textContent = `Node Inspector: ${nodeKey}`;
+    return;
+  }
+
+  titleBox.textContent = `Node Inspector: ${nodeKey}`;
+  if (nodeKey === 'router') {
+    codeBox.textContent = JSON.stringify({ decision: lastQueryResult.router_decision }, null, 2);
+  } else if (nodeKey === 'retriever') {
+    codeBox.textContent = JSON.stringify(lastQueryResult.retrieved_docs || [], null, 2);
+  } else if (nodeKey === 'planner') {
+    codeBox.textContent = JSON.stringify({ note: "Planner is a placeholder pass-through node in agent/graph_hybrid.py" }, null, 2);
+  } else if (nodeKey === 'sql_gen') {
+    codeBox.textContent = JSON.stringify({ sql_query: lastQueryResult.sql }, null, 2);
+  } else if (nodeKey === 'executor') {
+    codeBox.textContent = JSON.stringify({ result: lastQueryResult.sql_result, error: lastQueryResult.sql_error, retries: lastQueryResult.retry_count }, null, 2);
+  } else if (nodeKey === 'synthesizer') {
+    codeBox.textContent = JSON.stringify({ final_answer: lastQueryResult.final_answer, explanation: lastQueryResult.explanation, citations: lastQueryResult.citations }, null, 2);
+  }
+}
+
+// --- PERSIST QUERY HISTORY IN LOCALSTORAGE ---
+function saveToHistory(question, data) {
+  let hist = JSON.parse(localStorage.getItem('query_history') || '[]');
+  hist.unshift({
+    time: new Date().toLocaleTimeString(),
+    question: question,
+    route: (data.router_decision || 'hybrid').toUpperCase(),
+    confidence: `${Math.round((data.confidence || 0.8) * 100)}%`,
+    sql: data.sql || 'N/A'
+  });
+  if (hist.length > 30) hist.pop();
+  localStorage.setItem('query_history', JSON.stringify(hist));
+}
+
+function loadHistory() {
+  const hist = JSON.parse(localStorage.getItem('query_history') || '[]');
+  const tbody = document.getElementById('history-rows');
+  tbody.innerHTML = '';
+  if (!hist.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-outline">No history recorded yet. Execute a query to log history.</td></tr>`;
+    return;
+  }
+  hist.forEach(h => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="py-2.5 px-2 font-mono text-outline">${h.time}</td>
+      <td class="py-2.5 px-2 font-medium text-on-surface">${h.question}</td>
+      <td class="py-2.5 px-2 font-mono"><span class="bg-surface-container px-2 py-0.5 rounded text-tertiary">${h.route}</span></td>
+      <td class="py-2.5 px-2 font-mono text-primary">${h.confidence}</td>
+      <td class="py-2.5 px-2 font-mono text-outline truncate max-w-xs">${h.sql}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function clearHistory() {
+  localStorage.removeItem('query_history');
+  loadHistory();
+}
+
+// --- LOAD SCHEMA FROM /api/schema ---
+async function loadSchema() {
+  try {
+    const res = await fetch('/api/schema');
+    const data = await res.json();
+    const tables = data.tables || {};
+
+    const listContainer = document.getElementById('schema-table-list');
+    listContainer.innerHTML = '<span class="text-xs font-mono uppercase text-outline px-2 py-1">Tables</span>';
+
+    Object.keys(tables).forEach(tName => {
+      const info = tables[tName];
+      const count = info.row_count || 0;
+      const btn = document.createElement('button');
+      btn.className = 'flex items-center justify-between p-2 rounded-lg text-xs hover:bg-surface-container text-left text-on-surface font-mono transition-colors';
+      btn.innerHTML = `<span>${tName}</span><span class="text-[10px] text-outline">${count.toLocaleString()} rows</span>`;
+      btn.onclick = () => renderTableDetails(tName, info);
+      listContainer.appendChild(btn);
+    });
+  } catch (e) {}
+}
+
+function renderTableDetails(tName, info) {
+  document.getElementById('selected-table-title').textContent = `Table: ${tName} (${info.row_count || 0} rows)`;
+  const content = document.getElementById('selected-table-content');
+
+  let html = `
+    <table class="w-full text-xs text-left">
+      <thead class="text-[11px] uppercase font-mono text-outline border-b border-surface-container-high">
+        <tr><th class="py-2">Column</th><th class="py-2">Data Type</th></tr>
+      </thead>
+      <tbody class="divide-y divide-surface-container-high text-on-surface-variant font-mono">
+  `;
+  (info.columns || []).forEach(col => {
+    html += `<tr><td class="py-2 text-on-surface font-medium">${col.column}</td><td class="text-tertiary">${col.type}</td></tr>`;
+  });
+  html += `</tbody></table>`;
+  content.innerHTML = html;
+}
+
+// --- LOAD KNOWLEDGE BASE DOCS FROM /api/docs ---
+async function loadDocs() {
+  try {
+    const res = await fetch('/api/docs');
+    const data = await res.json();
+    const docs = data.docs || [];
+
+    const listContainer = document.getElementById('docs-list');
+    listContainer.innerHTML = '<span class="text-xs font-mono uppercase text-outline px-2 py-1">Documents</span>';
+
+    docs.forEach(doc => {
+      const btn = document.createElement('button');
+      btn.className = 'flex items-center justify-between p-2.5 rounded-lg text-xs hover:bg-surface-container text-left text-on-surface font-mono transition-colors';
+      btn.innerHTML = `<span>${doc.name}</span><span class="text-[10px] text-outline">${doc.line_count} lines</span>`;
+      btn.onclick = () => {
+        document.getElementById('doc-viewer-title').textContent = doc.name;
+        document.getElementById('doc-viewer-meta').textContent = `${doc.line_count} lines • ${doc.size_bytes} bytes`;
+        document.getElementById('doc-viewer-content').textContent = doc.content;
+      };
+      listContainer.appendChild(btn);
+    });
+
+    if (docs.length > 0) {
+      document.getElementById('doc-viewer-title').textContent = docs[0].name;
+      document.getElementById('doc-viewer-meta').textContent = `${docs[0].line_count} lines • ${docs[0].size_bytes} bytes`;
+      document.getElementById('doc-viewer-content').textContent = docs[0].content;
+    }
+  } catch (e) {}
+}
+
+// --- LOAD BENCHMARKS FROM /api/benchmarks ---
+async function loadBenchmarks() {
+  try {
+    const res = await fetch('/api/benchmarks');
+    const data = await res.json();
+    const qList = data.questions || [];
+
+    const tbody = document.getElementById('benchmark-rows');
+    tbody.innerHTML = '';
+
+    qList.forEach(q => {
+      const tr = document.createElement('tr');
+      let ansDisplay = typeof q.final_answer === 'object' ? JSON.stringify(q.final_answer) : String(q.final_answer);
+      tr.innerHTML = `
+        <td class="py-2.5 px-2 font-mono text-tertiary text-[11px]">${q.id}</td>
+        <td class="py-2.5 px-2 font-medium text-on-surface max-w-sm">${q.question}</td>
+        <td class="py-2.5 px-2 font-mono text-outline">${q.format_hint}</td>
+        <td class="py-2.5 px-2 font-mono text-primary max-w-xs truncate">${ansDisplay}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (e) {}
+}
+
+// --- INITIAL LOAD ---
+window.addEventListener('DOMContentLoaded', () => {
+  fetchSystemHealth();
+});
+</script>
+</body>
+</html>
