@@ -425,6 +425,7 @@ rm -rf .dspy_cache/
 # Rerun agent
 python run_agent_hybrid.py --batch benchmark_dataset.jsonl --out outputs_hybrid.jsonl
 ```
+<img width="1536" height="1024" alt="Retail Analytics AI Agent Flow" src="https://github.com/user-attachments/assets/f123b6c2-8823-41da-9681-92867c455c0f" />
 
 ---
 
